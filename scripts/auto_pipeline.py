@@ -49,7 +49,7 @@ def split_sentences(text: str) -> list[str]:
 
 
 def stage_prepare(narration_path: str, outdir: str, voice: str = None,
-                  speed: int = 165) -> Path:
+                  speed: int = 165, engine: str = 'fish') -> Path:
     narration_path = Path(narration_path).resolve()
     outdir = Path(outdir).resolve()
     outdir.mkdir(parents=True, exist_ok=True)
@@ -84,9 +84,9 @@ def stage_prepare(narration_path: str, outdir: str, voice: str = None,
     # TTS (Edge)
     audio_path = outdir / "voice.wav"
     timing_path = outdir / "timings.json"
-    print(f"Synthesizing {len(segments)} segments with Edge TTS...", flush=True)
+    print(f"Synthesizing {len(segments)} segments with {engine}...", flush=True)
     create_narration(plan, audio_path, timing_path,
-                     engine='edge', speed=speed, voice=voice)
+                     engine=engine, speed=speed, voice=voice)
     print(f"SAVED {audio_path}", flush=True)
     print(f"SAVED {timing_path}", flush=True)
 
@@ -167,8 +167,10 @@ def main():
     p1 = sub.add_parser('prepare', help='Text → TTS + timings + director brief')
     p1.add_argument('narration', help='Narration text file (.txt)')
     p1.add_argument('--outdir', default='work/ep01')
+    p1.add_argument('--engine', choices=['espeak','edge','fish'], default='fish',
+                    help='TTS engine (default fish)')
     p1.add_argument('--voice', default=None,
-                    help='Edge TTS voice (default zh-CN-XiaoxiaoNeural)')
+                    help='Voice: Edge voice name, or Fish Audio reference_id')
     p1.add_argument('--speed', type=int, default=165)
 
     p2 = sub.add_parser('render', help='Scene JSON + audio → final MP4')
@@ -177,7 +179,7 @@ def main():
 
     args = ap.parse_args()
     if args.stage == 'prepare':
-        stage_prepare(args.narration, args.outdir, args.voice, args.speed)
+        stage_prepare(args.narration, args.outdir, args.voice, args.speed, args.engine)
     else:
         result = stage_render(args.scene, args.outdir)
         print(f'PIPELINE COMPLETE: {result}')
