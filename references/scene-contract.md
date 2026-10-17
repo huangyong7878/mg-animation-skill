@@ -85,3 +85,15 @@
 - SVG 支持取决于可选依赖 `cairosvg` 是否安装。
 - 本机目录以外的相对路径（例如 `../../private.png`）会被拒绝；文件资产不从网络加载。
 - 默认视频没有背景音乐、配音、字幕。不应冒称和用户音轨做过对齐。
+
+---
+
+## 2.1 增量协议（旧版 2.0 JSON 继续兼容）
+
+- 根字段 `version` 支持 `"2.1"`；旧版 `"2.0"` 仍按历史直接合成模式运行。
+- `canvas.default_transition: {"type":"crossfade|wipe_left|slide_left|cut", "duration":0.7}`：镜头默认转场。
+- `scenes[n].transition_in`：覆盖镜头进入方式；连续时间轴的转场以相邻边界为中心分配时长，显式重叠的转场直接使用重叠区间。
+- `scenes[n].factual` 和 `scenes[n].claim_ids`：事实镜头绑定经过研究的声明 ID；顶层 `claims` 定义声明、状态和来源/引文。
+- `narration.segments`：分句文本、`start` 或 `scene_index` + `offset`、`pause_after`。调用 `scripts/narrate.py` 根据合成音频采样确定真实分句起止；WhisperX 可选字级对齐。
+- `scripts/render.py --audio output/voice.wav --timings output/timings.json`：完成 H.264/AAC 混流并按秒数烧录分句字幕。
+- `--fetch-sources` 对网页引文逐字存在性检查不等同于语义事实核验；数据日期、证据关联仍需研究代理或人工判断。

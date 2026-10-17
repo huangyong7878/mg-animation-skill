@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
+from transitions import build_junctions, compose
 
 DEFAULT_THEME = {
     'paper': '#E7DED4', 'ink': '#353C3E', 'red': '#B75049',
@@ -215,7 +216,6 @@ def timeline_state(node: dict, t: float) -> dict:
         typ=a['type'];start=float(a.get('start',0));duration=max(1e-6,float(a.get('duration',0.5)))
         hide_before=bool(a.get('hide_before',True))
         if t < start:
-            # Not started: slide/move define starting offset; fade/pop hide only if hide_before
             if typ == 'slide':
                 state['dx'] += float(a.get('from_x',0))
                 state['dy'] += float(a.get('from_y',14))
@@ -224,7 +224,6 @@ def timeline_state(node: dict, t: float) -> dict:
                 state['dy'] += float(a.get('from_y',0))
             elif typ in ('fade','pop') and hide_before:
                 state['alpha'] = 0.0
-            # draw: neutral before start (line not drawn yet, handled by draw<=0 check)
             continue
         p=ease((t-start)/duration, a.get('easing','out_cubic'))
         if typ == 'fade':state['alpha']*=p
@@ -236,7 +235,6 @@ def timeline_state(node: dict, t: float) -> dict:
             state['scale']*=start_scale+(1-start_scale)*ease((t-start)/duration,'out_back')
             if hide_before:
                 state['alpha']*=ease((t-start)/min(duration,0.2),'linear')
-            # else: pulse on visible element, don't touch alpha
         elif typ == 'draw':state['draw']*=p
         elif typ == 'move':
             fx=float(a.get('from_x',0)); fy=float(a.get('from_y',0))
@@ -481,8 +479,31 @@ class Renderer:
         self.scenes=[]
         for scene in data['scenes']:
             self.scenes.append((scene,layout_scene(scene,self.width,self.height)))
+        self.junctions = build_junctions(data['scenes'], c.get('default_transition')) if data.get('version')=='2.1' else []
+
+    def _scene_frame(self,index:int,t:float)->Image.Image:
+        scene, layouts=self.scenes[index]
+        local=max(0,min(float(scene['duration'])-1/self.fps,t-float(scene.get('start',0))))
+        img=self.background.copy()
+        for node,box in layouts:
+            layer=Image.new('RGBA',img.size,(0,0,0,0))
+            draw_item(layer,node,box,local,self.theme,self.fonts,self.asset_root,self.asset_cache)
+            img=Image.alpha_composite(img,layer)
+        return img.convert('RGB')
 
     def frame(self,t:float)->Image.Image:
+        if self.data.get('version')=='2.1':
+            for junction in self.junctions:
+                if junction.start<=t<junction.end:
+                    p=ease((t-junction.start)/(junction.end-junction.start),'in_out')
+                    old=self._scene_frame(junction.a,t)
+                    new=self._scene_frame(junction.b,t)
+                    return compose(old,new,p,junction.kind)
+            active=[i for i,(scene,_) in enumerate(self.scenes)
+                    if float(scene.get('start',0))<=t<float(scene.get('start',0))+float(scene['duration'])]
+            if active:return self._scene_frame(active[-1],t)
+            return self.background.convert('RGB').copy()
+        # Preserve v2.0 legacy behavior for old projects.
         img=self.background.copy()
         for scene,layouts in self.scenes:
             start=float(scene.get('start',0));duration=float(scene['duration'])

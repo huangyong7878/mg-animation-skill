@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "MG Animation Scene v2.0",
+  "title": "MG Animation Scene v2.1",
   "type": "object",
   "required": [
     "version",
@@ -9,7 +9,10 @@
   ],
   "properties": {
     "version": {
-      "const": "2.0"
+      "enum": [
+        "2.0",
+        "2.1"
+      ]
     },
     "canvas": {
       "type": "object",
@@ -44,6 +47,9 @@
         },
         "font_path": {
           "type": "string"
+        },
+        "default_transition": {
+          "$ref": "#/$defs/transition"
         }
       }
     },
@@ -58,6 +64,90 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/scene"
+      }
+    },
+    "narration": {
+      "type": "object",
+      "properties": {
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "start": {
+                "type": "number",
+                "minimum": 0
+              },
+              "scene_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "offset": {
+                "type": "number",
+                "minimum": 0
+              },
+              "pause_after": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "disputed"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "url",
+                "quote"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "quote": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -336,8 +426,38 @@
           "items": {
             "$ref": "#/$defs/node"
           }
+        },
+        "transition_in": {
+          "$ref": "#/$defs/transition"
+        },
+        "factual": {
+          "type": "boolean"
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
+    },
+    "transition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "crossfade",
+            "wipe_left",
+            "slide_left",
+            "cut"
+          ]
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
