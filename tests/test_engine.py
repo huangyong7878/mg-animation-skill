@@ -45,13 +45,10 @@ class TestMGEngine(unittest.TestCase):
     def test_move_interpolates_position(self):
         x={'animations':[{'type':'move','start':1.0,'duration':2.0,'easing':'linear',
                           'from_x':100,'from_y':-50,'to_x':0,'to_y':0}]}
-        # before start: at from-offset
         s0=timeline_state(x,0.5)
         self.assertAlmostEqual(s0['dx'],100); self.assertAlmostEqual(s0['dy'],-50)
-        # mid: halfway (linear)
         s1=timeline_state(x,2.0)
         self.assertAlmostEqual(s1['dx'],50); self.assertAlmostEqual(s1['dy'],-25)
-        # after: at to-offset
         s2=timeline_state(x,4.0)
         self.assertAlmostEqual(s2['dx'],0); self.assertAlmostEqual(s2['dy'],0)
 
@@ -60,7 +57,7 @@ class TestMGEngine(unittest.TestCase):
             {'type':'pop','start':.3,'duration':.5},
             {'type':'pop','start':1.8,'duration':.4,'hide_before':False},
         ]}
-        s=timeline_state(x,1.0)  # entrance done, pulse not started
+        s=timeline_state(x,1.0)
         self.assertAlmostEqual(s['alpha'],1.0)
         self.assertAlmostEqual(s['scale'],1.0)
 

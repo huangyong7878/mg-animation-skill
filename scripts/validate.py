@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from jsonschema import Draft202012Validator
 from engine import load, layout_scene, table_dimensions, timeline_state, Renderer
+from factcheck import check as check_claims
 
 SCHEMA=Path(__file__).resolve().parent.parent/'references'/'scene.schema.json'
 VALID_ANIMATIONS={'fade','slide','pop','draw','move'}
@@ -46,6 +47,8 @@ def validate(data):
         if not errors:
             try:layout_scene(scene,data['canvas']['width'],data['canvas']['height'])
             except (ValueError,KeyError,TypeError) as e:errors.append(f'Layout error in scene {ix}: {e}')
+    if data.get("version")=="2.1":
+        errors.extend(check_claims(data,fetch=False))
     return errors
 
 
