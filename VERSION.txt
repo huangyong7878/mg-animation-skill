@@ -1,0 +1,4 @@
+MG Infographic Animation Skill 2.0.0
+2026-10-17
+Python-based v2 declarative scene graph engine
+Validated with six unit tests and three rendered 960x540@24FPS videos.

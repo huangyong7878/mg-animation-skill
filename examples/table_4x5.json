@@ -1,0 +1,20 @@
+{
+  "version":"2.0",
+  "canvas":{"width":960,"height":540,"fps":24,"duration":5.0,"grain_seed":47},
+  "theme":{"paper":"#E7DED4","ink":"#354047","red":"#B75049","gold":"#AF8741","blue":"#344F60","cream":"#F4EEE5"},
+  "scenes":[{"id":"flexible-four-column-table","start":0,"duration":5.0,"elements":[
+    {"id":"head","type":"text","text":"信息图组件 · 四列五行","rect":{"x":"7%","y":"4%","w":"86%","h":"12%"},"style":{"size":37,"color":"$ink"},"animations":[{"type":"fade","start":0.05,"duration":0.55},{"type":"slide","start":0.05,"duration":0.65,"from_y":-17}]},
+    {"id":"rule","type":"line","rect":{"x":"10%","y":"19%","w":"80%","h":0},"style":{"stroke":"$red","stroke_width":3},"animations":[{"type":"draw","start":0.25,"duration":0.65}]},
+    {"id":"dynamic-table","type":"table","rect":{"x":"8%","y":"24%","w":"84%","h":"61%"},
+      "columns":["功能","输入","动画","输出"],
+      "rows":[
+        [{"type":"badge","text":"标题"},"文字","淡入上移","主标题"],
+        [{"type":"badge","text":"线条"},"图形坐标","逐笔绘制","表格 / 连线"],
+        [{"type":"badge","text":"图标"},"矢量素材","弹性缩放","图标节点"],
+        [{"type":"badge","text":"流程"},"步骤数组","交错进入","动画序列"]
+      ],"column_weights":[1,1.1,1.15,1.25],"header_ratio":0.83,
+      "grid_start":0.55,"grid_duration":0.65,"cells_start":1.12,"cell_duration":0.32,"stagger":0.12,
+      "style":{"stroke":"$red","stroke_width":2,"font_size":22,"color":"$ink","header_fill":"$red"}
+    },
+    {"id":"footer","type":"text","text":"布局自动计算  ·  行列可由 AI 任意指定","rect":{"x":"9%","y":"90%","w":"82%","h":"6%"},"style":{"size":19,"color":"$muted"},"animations":[{"type":"fade","start":3.50,"duration":0.65}]}
+  ]}]}

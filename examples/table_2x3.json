@@ -1,0 +1,105 @@
+{
+  "version": "2.0",
+  "canvas": {
+    "width": 960,
+    "height": 540,
+    "fps": 24,
+    "duration": 4.0,
+    "grain_seed": 47
+  },
+  "scenes": [
+    {
+      "id": "small-table",
+      "start": 0,
+      "duration": 4.0,
+      "elements": [
+        {
+          "type": "text",
+          "text": "同一个引擎：两列三行",
+          "rect": {
+            "x": "9%",
+            "y": "7%",
+            "w": "82%",
+            "h": "15%"
+          },
+          "style": {
+            "size": 41
+          },
+          "animations": [
+            {
+              "type": "fade",
+              "start": 0.05,
+              "duration": 0.55
+            },
+            {
+              "type": "slide",
+              "start": 0.05,
+              "duration": 0.55,
+              "from_y": -14
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "rect": {
+            "x": "15%",
+            "y": "30%",
+            "w": "70%",
+            "h": "52%"
+          },
+          "columns": [
+            "动画元素",
+            "推荐效果"
+          ],
+          "rows": [
+            [
+              "标题",
+              {
+                "type": "badge",
+                "text": "淡入"
+              }
+            ],
+            [
+              "图标",
+              {
+                "type": "image",
+                "asset": "badge_icon.png"
+              }
+            ]
+          ],
+          "grid_start": 0.5,
+          "grid_duration": 0.68,
+          "cells_start": 1.2,
+          "stagger": 0.28,
+          "cell_duration": 0.35,
+          "style": {
+            "font_size": 30,
+            "stroke": "$red",
+            "stroke_width": 3
+          }
+        },
+        {
+          "type": "text",
+          "text": "没有修改渲染代码",
+          "rect": {
+            "x": "20%",
+            "y": "89%",
+            "w": "60%",
+            "h": "7%"
+          },
+          "style": {
+            "size": 22,
+            "color": "$muted"
+          },
+          "animations": [
+            {
+              "type": "pop",
+              "start": 2.85,
+              "duration": 0.55
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

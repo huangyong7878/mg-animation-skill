@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MG Animation Scene v2.0",
+  "type": "object",
+  "required": [
+    "version",
+    "canvas",
+    "scenes"
+  ],
+  "properties": {
+    "version": {
+      "const": "2.0"
+    },
+    "canvas": {
+      "type": "object",
+      "required": [
+        "width",
+        "height",
+        "duration"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 160,
+          "maximum": 4096
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 120,
+          "maximum": 4096
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "grain_seed": {
+          "type": "integer"
+        },
+        "font_path": {
+          "type": "string"
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/scene"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "dimension": {
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "pattern": "^-?[0-9]+(?:\\.[0-9]+)?%$"
+        }
+      ]
+    },
+    "rect": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/dimension"
+        },
+        "y": {
+          "$ref": "#/$defs/dimension"
+        },
+        "w": {
+          "$ref": "#/$defs/dimension"
+        },
+        "h": {
+          "$ref": "#/$defs/dimension"
+        }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "fade",
+            "slide",
+            "pop",
+            "draw",
+            "move"
+          ]
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "easing": {
+          "enum": [
+            "linear",
+            "out_cubic",
+            "in_out",
+            "out_back"
+          ]
+        },
+        "from_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "from_x": {
+          "type": "number"
+        },
+        "from_y": {
+          "type": "number"
+        },
+        "to_x": {
+          "type": "number"
+        },
+        "to_y": {
+          "type": "number"
+        }
+      }
+    },
+    "cell": {
+      "oneOf": [
+        {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                "text",
+                "icon",
+                "badge",
+                "image"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "style": {
+              "type": "object"
+            },
+            "asset": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "rect": {
+          "$ref": "#/$defs/rect"
+        },
+        "text": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "style": {
+          "type": "object"
+        },
+        "animations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/animation"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "columns": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/cell"
+              }
+            }
+          ]
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/cell"
+            }
+          }
+        },
+        "items": {
+          "type": "array"
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "column_weights": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "row_weights": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "padding": {
+          "$ref": "#/$defs/dimension"
+        },
+        "gap": {
+          "$ref": "#/$defs/dimension"
+        },
+        "header_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "grid_start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "grid_duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "cells_start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cell_duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "stagger": {
+          "type": "number",
+          "minimum": 0
+        },
+        "order": {
+          "enum": [
+            "row",
+            "column"
+          ]
+        },
+        "line_start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "line_duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "items_start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "asset": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "required": [
+        "duration",
+        "elements"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        }
+      }
+    }
+  }
+}
