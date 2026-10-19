@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "project_id": "orders_two_routes",
+  "spec_id": "orders_shot_001",
+  "revision": 1,
+  "approval": {
+    "status": "draft"
+  },
+  "creative": {
+    "title": "两张订单，两条路径",
+    "audience": "普通电商用户",
+    "style": "复古纸张、清晰信息图、低饱和双色订单卡，克制动效",
+    "core_message": "同样下单，库存充足和库存不足会走向不同处理路径。"
+  },
+  "narration": {
+    "status": "draft",
+    "script_path": "narration.txt",
+    "alignment": "sentence"
+  },
+  "output": {
+    "width": 960,
+    "height": 540,
+    "fps": 24,
+    "duration_s": 13
+  },
+  "shots": [
+    {
+      "id": "shot_01",
+      "start_s": 0,
+      "duration_s": 13,
+      "beat_ids": [
+        "B1",
+        "B2",
+        "B3"
+      ],
+      "visual_description": "两张持续保有颜色与编号身份的订单卡同时下单，进入库存判断；绿色 A 顺畅走向拣货、打包、发货，橙色 B 在缺货门槛转向待补货队列。画面让观众无需旁白也能复述两个结果。",
+      "dynamic_model": "订单状态机：placed -> stock_check -> (in_stock -> pick -> pack -> ship | out_of_stock -> restock_queue)。订单身份不变、不瞬移、不走错分支。",
+      "visual_contract": {
+        "shot_id": "shot_01",
+        "visual_goal": "从两个订单的连续运动看清库存决定分支",
+        "core_takeaway": "库存是否充足决定订单下一步",
+        "must_show": [
+          {
+            "id": "order_a",
+            "desc": "绿色订单 A，全程保持身份"
+          },
+          {
+            "id": "order_b",
+            "desc": "橙色订单 B，全程保持身份"
+          },
+          {
+            "id": "stock_decision",
+            "desc": "明确的库存判断节点"
+          },
+          {
+            "id": "fulfillment",
+            "desc": "订单 A 的拣货、打包和发货"
+          },
+          {
+            "id": "restock_queue",
+            "desc": "订单 B 的待补货队列"
+          }
+        ],
+        "continuous_motion": [
+          {
+            "id": "path_a",
+            "from": "placed",
+            "through": [
+              "stock_check",
+              "pick",
+              "pack"
+            ],
+            "to": "ship",
+            "desc": "A 路径连续、无瞬移"
+          },
+          {
+            "id": "path_b",
+            "from": "placed",
+            "through": [
+              "stock_check"
+            ],
+            "to": "restock_queue",
+            "desc": "B 路径连续，且不进入发货流程"
+          }
+        ],
+        "editorial": {
+          "title": "两张订单，两条路径"
+        },
+        "render_mode": "custom",
+        "silent_downgrade": false
+      },
+      "acceptance": [
+        "无声观看可辨别订单 A 已发货，B 等待补货",
+        "A/B 运动过程中不能在不同位置凭空出现",
+        "路径和标签必须符合库存条件分支"
+      ]
+    }
+  ]
+}
