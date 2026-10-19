@@ -288,7 +288,7 @@ ffmpeg -hide_banner -y -ss 5 -i \
   -frames:v 1 work/orders_two_routes/attempt-001/media/keyframes/shot_01_005000.png
 
 # 确认代码和测试完整，再提交源文件；不要 git add work/ 或 MP4
-git add scripts/ tests/   # 按实际修改范围选择，不要把不相关文件纳入
+git add scripts/ tests/   # 示例：如果新代码在 shots/ 等目录，还需显式 git add 该目录
 git commit -m "feat: implement two-order motion prototype"
 git push -u origin feat/pilot-orders-animation
 gh pr create --draft --base main --head feat/pilot-orders-animation \
@@ -296,6 +296,8 @@ gh pr create --draft --base main --head feat/pilot-orders-animation \
   --body "Implements Issue #4; media artifact supplied separately, QA pending."
 git rev-parse HEAD
 ~~~
+
+**当前调度器兼容要求：** `orchestrator.receive` 会检查 `delivery.artifacts.source_paths`、`keyframe_paths` 和 `video_path` 是否都存在于**同一个本地 `--artifact-root`**。如果源码的权威版本保存在 Git，则接收方必须将**所声明 commit 的源码快照**还原到制品目录中、使 `source_paths` 相对路径确实存在（或在制品 ZIP 中附经核对的源码快照）。只下载 MP4 和交付 JSON、没有对应源码文件，当前 `receive` 会失败。还原源码之前先核对 PR HEAD 和完整 commit SHA；这只是当前 CLI 的文件检查方式，不改变“源码以 Git 为准”的原则。
 
 **重要顺序**：媒体实际渲染应该明确关联最终提交的源码 commit。上面仅给出开发命令顺序；最终交付前若再修改了任何影响渲染的代码，必须在**最终 commit** 上重新渲染并更新 deliverable。不要用旧 MP4 与新 HEAD 组成交付包。
 
@@ -534,7 +536,7 @@ python workflow/media_manifest.py verify \
 1. R0 运行 `orchestrator prepare`（`--spec examples/workflow_orders_spec.json`，新 `--workdir work/orders_two_routes_run01`）；若已经准备过，用 `status` 查，不要覆盖。
 2. 把 Issue #4 和第 5 节的 R4 提示词交给 Muse，明确要求从最新 `main` 实现**无声原型**。
 3. Muse 提交独立实现 PR 与可访问媒体制品，提供完整最终源码 commit SHA。**Issue 编号 4 不是 PR 编号**；以实际新 PR 编号为准。
-4. R0 下载真实交付文件/MP4 到本地，运行 `orchestrator receive --repo ... --pr 实际PR编号`；如果没有媒体不可进行 QA。
+4. R0 下载真实交付文件/MP4，**把 delivery.source_paths 对应 commit 的源码也放入 artifact-root 下**，运行 `orchestrator receive --repo ... --pr 实际PR编号`；如果没有媒体不可进行 QA。
 5. R5 使用 `role_pack.py qa` 的独立上下文审实际 MP4；`record-qa` 写入真实结果。
 6. 不合格时 R6 反馈到正确的实现 PR，限两轮；下一轮以新 commit 重新生成媒体和独立 QA。
 7. 这轮的成功标准是**无声动画质量与分工闭环**，不是正式有声版发布。`--release` 在当前 Draft Spec 下应当阻断。
