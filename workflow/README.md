@@ -4,6 +4,12 @@
 
 本阶段交付的是文件协议与结构门禁，不包含云端模型 API 调度、自动观看视频、GitHub PR 自动发布或模型计费管理。
 
+## 媒体交付位置（重要）
+
+**更新约定：** 请先阅读 [ADR 0001](../docs/adr/0001-media-artifact-policy.md)。实际的 MP4、关键帧、连续帧、`delivery.json` 与 `media_manifest.json` 建议作为**同一次构建制品**上传，而不是向执行 PR 写入大文件或会产生自引用 commit 的 delivery 元数据。PR 提供媒体制品链接、源码 commit、规格指纹和审片讨论。
+
+现有 `check_handoff.py` 和 `orchestrator.receive` 依然可以读取下载到本地的 delivery 和媒体；本 PR 不修改它们的运行接口。Actions 渲染及上传需有可复现的项目渲染命令，当前没有自动接入所有自定义镜头。
+
 ## 三份文件
 
 - `director_spec.json`：创意目标、观众、视觉风格、逐镜头描述、状态模型、Visual Contract、验收标准，`approval` 和 `narration` 的锁定状态。
