@@ -541,6 +541,19 @@ python workflow/media_manifest.py verify \
 6. 不合格时 R6 反馈到正确的实现 PR，限两轮；下一轮以新 commit 重新生成媒体和独立 QA。
 7. 这轮的成功标准是**无声动画质量与分工闭环**，不是正式有声版发布。`--release` 在当前 Draft Spec 下应当阻断。
 
+## 11.1 真实试点的提交版本特例：PR #7
+
+2026-10-19 的 Muse 交付采用了这个过程：
+
+- 生成媒体时的源码提交为 `af17e46cc1eb0f0762b649a1c19bf1397ffdf335`。
+- 为遵守 ADR 0001，随后又产生了一个**仅删除已跟踪 `delivery.json` 的提交**，因此 PR #7 最新 HEAD 成了 `d780dac4a7528d34bcb53311d096b50211c9de2e`。
+- 仓库核对确认 `orderflow.py`、原语注册文件和 `scene.json` 在两个 commit 中的 **Git blob SHA 相同**，即这三个实现文件没有变化。
+- 尽管如此，当前 `orchestrator.receive --repo ... --pr ...` 仍严格要求 `delivery.implementation_commit == PR HEAD`。**它会拒绝旧 SHA，并不自动判断“只有元数据改变”。**
+
+处理原则：不要偷偷把 `delivery.implementation_commit` 改为新 SHA 后继续声称视频就是由新 SHA 重新构建的。保持清楚的 `rendered_source_commit` 事实记录，先用**准确的原始 commit** 核对实现与视频；如需要现有 `--pr` 严格门禁通过，应让执行者以当前 HEAD 重新进行正式可复现渲染，并重新出具同轮媒体与交付清单，或者未来扩展门禁接受**经过验证、没有渲染输入文件变化的元数据提交**。
+
+**制品下载不等于已审片**：Muse.ai 的外部 ZIP URL 若无法被 QA 模型/执行环境实际下载，必须要求操作员把 ZIP 直接上传到审片上下文，或者迁至可访问的 Artifact/对象存储。只有 PR 代码和 URL 时，QA 状态保持 `pending`；不允许根据代码里的动画轨迹宣告画面通过。
+
 ## 12. 故障与快速判断
 
 | 表现 | 正确处理 |
