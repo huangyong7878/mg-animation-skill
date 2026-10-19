@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "project_id": "orders_two_routes",
+  "spec_id": "orders_shot_001",
+  "spec_revision": 1,
+  "spec_sha256": "567c17cc7290292375c42dc98e7dbf6253638148c69824426fae02625f49624c",
+  "implementation_commit": "example000001",
+  "reviewer": {
+    "name": "independent_qa_example",
+    "independent_context": true
+  },
+  "decision": "pending",
+  "checks": [],
+  "findings": [],
+  "summary": "格式示例：未执行多模态审查，也未对实际视频打分。"
+}
