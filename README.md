@@ -35,6 +35,16 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 演示视频用离线发音器生成的中文语音**很机械**，不代表 Skill 的最终配音质量。正式作品请优先测试 Edge TTS 或替换专业语音后端；切换后应重新提取音频时间戳。
 
+## 多模型协作完整操作手册（从零到交付）
+
+**[打开完整操作手册：每个角色的提示词、命令和交接规则](docs/MULTI_MODEL_PLAYBOOK.md)**。
+
+文档包含项目调度、事实研究、创意导演、技术总导演、Muse/DeepSeek 动画实施、
+独立多模态视觉 QA、定点返工、人类发布审批共 8 个角色，
+并使用 [Issue #4](https://github.com/huangyong7878/mg-animation-skill/issues/4) /
+[PR #7](https://github.com/huangyong7878/mg-animation-skill/pull/7) 说明真实交接。
+先阅读此手册，再从各角色 `roles/` 说明和 `workflow/` 命令进入详细实现。
+
 ## 强模型总导演与跨模型替换
 
 不使用 ChatGPT 也可以继续本项目：从 [roles/README.md](roles/README.md) 开始，按角色包让任意支持结构化文件的强模型担任**总导演、独立视觉 QA 或返工监督**。执行模型仍可选 Muse / DeepSeek。
