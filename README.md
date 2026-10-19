@@ -47,6 +47,13 @@ python workflow/role_pack.py director --brief path/to/brief.md --out work/portab
 
 得到的 ZIP 含角色说明、现有视觉/导演规范、正式 JSON Schema 和输入材料。审片时使用 `qa` 子命令，必须提供真实视频；`role_pack.py` 不会自行观看影片或调用模型。
 
+## MP4、关键帧与媒体存储协议
+
+渲染产物不直接提交 Git：请阅读 [ADR 0001：媒体制品存储约定](docs/adr/0001-media-artifact-policy.md)。
+源码、规格和测试留在 Git；真正的 MP4、帧图片及跟随构建的 `delivery.json`、`media_manifest.json` 存储为构建制品，绑定渲染时使用的源码 commit。临时预览可使用 GitHub Actions Artifacts（建议保留 30 天），长期成片应另行归档。
+
+`workflow/media_manifest.py` 可生成并验证媒体 SHA256 清单；它**不负责上传**，需由真实构建/存储环节处理。
+
 ## 使用在其他 AI 工具中
 
 将本文件夹作为 `mg-infographic-animation` Skill 加入 Codex、Claude Code、Cursor 或其他能读取项目文件的 AI 编程工具。阅读 `SKILL.md`，运行已知示例，再用 `references/ai-agent-prompt.md` 创建新的场景 JSON。各工具对 Skill 目录的要求不同，可直接让 AI 在此目录工作。
