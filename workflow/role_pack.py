@@ -18,11 +18,6 @@ try:
 except ModuleNotFoundError:
     from check_handoff import canonical_digest, required_checks, validate_bundle
 
-try:
-    from workflow.qa_evidence import verify_evidence, EVIDENCE_FILE
-except ModuleNotFoundError:
-    from qa_evidence import verify_evidence, EVIDENCE_FILE
-
 
 def read_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -146,6 +141,10 @@ def qa(args, root):
     if args.timings:
         copy(args.timings, root / "inputs" / "timings.json")
     if args.evidence_dir:
+        try:
+            from workflow.qa_evidence import verify_evidence, EVIDENCE_FILE
+        except ModuleNotFoundError:
+            from qa_evidence import verify_evidence, EVIDENCE_FILE
         evidence_root = Path(args.evidence_dir).resolve()
         problems = verify_evidence(evidence_root, args.video, args.spec)
         if problems:
