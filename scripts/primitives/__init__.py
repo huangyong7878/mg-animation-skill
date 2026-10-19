@@ -67,4 +67,4 @@ def point_at(pts, ls, total, d):
 # Import all built-in primitives so they self-register.
 from . import rain, soil, soak, road, flow, drainpipe, waterpath, \
     panel_header, legend, layer_label, statusline, progressbar, \
-    waterfilm, waterlevel, counter, bucket  # noqa: E402,F401
+    waterfilm, waterlevel, counter, bucket, orderflow  # noqa: E402,F401
