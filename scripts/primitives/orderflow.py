@@ -96,7 +96,7 @@ def draw(draw, box, t, node, style, col, fonts):
                   fill=alpha(_INK, scene_a), font=fonts.get(int(S(34))),
                   anchor="mm")
         draw.text((X(480), Y(74)), "同样下单，库存充足和库存不足会走向不同处理路径。",
-                  fill=alpha(_MUTED, scene_a), font=fonts.get(int(S(15))),
+                  fill=alpha(_MUTED, scene_a), font=fonts.get(int(S(17))),
                   anchor="mm")
 
     # ---- stations (static layout) ----
@@ -127,8 +127,8 @@ def draw(draw, box, t, node, style, col, fonts):
         ]:
             draw.line([X(x0), Y(y0), X(x1), Y(y1)], fill=lc, width=max(1, int(S(2))))
 
-    # station labels
-    def label(x, y, text, color=_MUTED, size=14):
+    # station labels (QA-P2-002: larger for readability)
+    def label(x, y, text, color=_MUTED, size=16):
         if scene_a <= 0:
             return
         draw.text((X(x), Y(y)), text, fill=alpha(color, scene_a),
@@ -140,8 +140,11 @@ def draw(draw, box, t, node, style, col, fonts):
     label(pack_x, pack_y - 52, "打包")
     label(ship_x, ship_y - 52, "发货")
 
-    # stock check diamond
-    if scene_a > 0:
+    # stock check diamond — drawn AFTER cards (QA-P1-001): node stays on top
+    # so "库存检查" remains readable when cards pause at the decision point.
+    def draw_stock_diamond():
+        if scene_a <= 0:
+            return
         ds = S(46)
         if 4.8 <= t <= 6.2:
             pulse = 1.0 + 0.06 * _smooth((t - 4.8) / 1.0) * (1 - _smooth((t - 5.8) / 0.4))
@@ -150,9 +153,9 @@ def draw(draw, box, t, node, style, col, fonts):
         _diamond(draw, X(check_cx), Y(check_cy), ds * pulse,
                  fill=alpha(_PAPER, scene_a), outline=alpha(_INK, scene_a))
         draw.text((X(check_cx), Y(check_cy) - S(8)), "库存",
-                  fill=alpha(_INK, scene_a), font=fonts.get(int(S(16))), anchor="mm")
+                  fill=alpha(_INK, scene_a), font=fonts.get(int(S(18))), anchor="mm")
         draw.text((X(check_cx), Y(check_cy) + S(12)), "检查",
-                  fill=alpha(_INK, scene_a), font=fonts.get(int(S(16))), anchor="mm")
+                  fill=alpha(_INK, scene_a), font=fonts.get(int(S(18))), anchor="mm")
 
     # restock queue zone (dashed box)
     if scene_a > 0:
@@ -170,15 +173,15 @@ def draw(draw, box, t, node, style, col, fonts):
             draw.line([qx1, y, qx1, min(y + dash, qy1)], fill=alpha(_ORANGE_DK, 0.7 * scene_a), width=max(1, int(S(2))))
             y += dash * 2
         draw.text((X(650), Y(356)), "待补货队列",
-                  fill=alpha(_ORANGE_DK, scene_a), font=fonts.get(int(S(15))), anchor="mm")
+                  fill=alpha(_ORANGE_DK, scene_a), font=fonts.get(int(S(17))), anchor="mm")
 
     # ---- branch labels at decision moment ----
     dec_a = _fade(t, 4.9, 5.6)
     if dec_a > 0:
         draw.text((X(440), Y(196)), "有货 ✓",
-                  fill=alpha(_GREEN_DK, dec_a), font=fonts.get(int(S(15))), anchor="mm")
+                  fill=alpha(_GREEN_DK, dec_a), font=fonts.get(int(S(17))), anchor="mm")
         draw.text((X(452), Y(352)), "缺货",
-                  fill=alpha(_ORANGE_DK, dec_a), font=fonts.get(int(S(15))), anchor="mm")
+                  fill=alpha(_ORANGE_DK, dec_a), font=fonts.get(int(S(17))), anchor="mm")
 
     # ---- order cards ----
     def card(cx, cy, letter, color, dark, appear_t, scale_extra=1.0):
@@ -202,11 +205,11 @@ def draw(draw, box, t, node, style, col, fonts):
                       fill=alpha(_WHITE, a), font=fonts.get(int(S(13) * sc)), anchor="mm")
 
     # A keyframes: placed -> check -> pick -> pack -> ship
-    # (slight vertical offset at the decision node so B stays visible)
+    # (vertical offset at decision node so diamond text stays readable, QA-P1-001)
     a_keys = [
         (1.8, placed_ax, placed_ay),
-        (4.8, check_cx, check_cy - 34),
-        (5.8, check_cx, check_cy - 34),
+        (4.8, check_cx, check_cy - 48),
+        (5.8, check_cx, check_cy - 48),
         (7.2, pick_x, pick_y),
         (8.6, pack_x, pack_y),
         (10.0, ship_x, ship_y),
@@ -215,8 +218,8 @@ def draw(draw, box, t, node, style, col, fonts):
     # B keyframes: placed -> check -> restock queue
     b_keys = [
         (1.8, placed_bx, placed_by),
-        (4.8, check_cx, check_cy + 34),
-        (5.8, check_cx, check_cy + 34),
+        (4.8, check_cx, check_cy + 48),
+        (5.8, check_cx, check_cy + 48),
         (8.4, queue_x, queue_y),
         (13.0, queue_x, queue_y),
     ]
@@ -226,6 +229,9 @@ def draw(draw, box, t, node, style, col, fonts):
     # draw B first (under), then A
     card(bx, by, "B", _ORANGE, _ORANGE_DK, 1.2)
     card(ax, ay, "A", _GREEN, _GREEN_DK, 1.0)
+
+    # QA-P1-001: stock decision node on top of cards
+    draw_stock_diamond()
 
     # ---- end-state badges ----
     ship_a = _fade(t, 10.4, 11.2)
