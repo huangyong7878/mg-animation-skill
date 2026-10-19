@@ -288,7 +288,11 @@ ffmpeg -hide_banner -y -ss 5 -i \
   -frames:v 1 work/orders_two_routes/attempt-001/media/keyframes/shot_01_005000.png
 
 # 确认代码和测试完整，再提交源文件；不要 git add work/ 或 MP4
-git add scripts/ tests/   # 示例：如果新代码在 shots/ 等目录，还需显式 git add 该目录
+# work/ 已被 .gitignore 忽略。要将场景 JSON 放入 Git，请复制到受版本控制的 projects/：
+mkdir -p projects/orders_two_routes
+cp work/orders_two_routes/scene.json projects/orders_two_routes/scene.json
+git add scripts/ tests/ projects/orders_two_routes/scene.json
+# 如果项目源码在 shots/ 等目录，还需 git add 对应源码目录；不要提交 MP4。
 git commit -m "feat: implement two-order motion prototype"
 git push -u origin feat/pilot-orders-animation
 gh pr create --draft --base main --head feat/pilot-orders-animation \
