@@ -35,6 +35,18 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 演示视频用离线发音器生成的中文语音**很机械**，不代表 Skill 的最终配音质量。正式作品请优先测试 Edge TTS 或替换专业语音后端；切换后应重新提取音频时间戳。
 
+## 强模型总导演与跨模型替换
+
+不使用 ChatGPT 也可以继续本项目：从 [roles/README.md](roles/README.md) 开始，按角色包让任意支持结构化文件的强模型担任**总导演、独立视觉 QA 或返工监督**。执行模型仍可选 Muse / DeepSeek。
+
+生成完全独立于模型 API 的任务包：
+
+```bash
+python workflow/role_pack.py director --brief path/to/brief.md --out work/portable/director_001
+```
+
+得到的 ZIP 含角色说明、现有视觉/导演规范、正式 JSON Schema 和输入材料。审片时使用 `qa` 子命令，必须提供真实视频；`role_pack.py` 不会自行观看影片或调用模型。
+
 ## 使用在其他 AI 工具中
 
 将本文件夹作为 `mg-infographic-animation` Skill 加入 Codex、Claude Code、Cursor 或其他能读取项目文件的 AI 编程工具。阅读 `SKILL.md`，运行已知示例，再用 `references/ai-agent-prompt.md` 创建新的场景 JSON。各工具对 Skill 目录的要求不同，可直接让 AI 在此目录工作。
