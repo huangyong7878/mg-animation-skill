@@ -16,4 +16,4 @@ jobs:
         with:
           python-version: '3.11'
       - name: Validate contract gate
-        run: python -m unittest discover -s tests -p 'test_contract_check.py' -v
+        run: python -m unittest discover -s tests -p 'test_*contract*.py' -v
