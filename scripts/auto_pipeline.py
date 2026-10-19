@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from narrate import create_narration
 from validate import validate
 from engine import load
+from contract_check import audit_contract, load as load_contract
 
 
 def split_sentences(text: str) -> list[str]:
@@ -120,7 +121,7 @@ def stage_prepare(narration_path: str, outdir: str, voice: str = None,
     return brief_path
 
 
-def stage_render(scene_path: str, outdir: str) -> Path:
+def stage_render(scene_path: str, outdir: str, contract_path: str | None = None) -> Path:
     scene_path = Path(scene_path).resolve()
     outdir = Path(outdir).resolve()
 
@@ -138,14 +139,26 @@ def stage_render(scene_path: str, outdir: str) -> Path:
         raise ValueError('Scene validation failed:\n' + '\n'.join(issues))
     print('PASS: scene validation', flush=True)
 
-    # Render (video only, then mux audio)
+    # Optional shot-level structural gate. Always strict for release rendering;
+    # explicit downgrade should be reviewed in the Director/QA workflow first.
+    if contract_path:
+        audit = audit_contract(load_contract(contract_path), data, strict=True)
+        report_path = outdir / 'contract_report.json'
+        outdir.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(audit, ensure_ascii=False, indent=2) + '\n',
+                               encoding='utf-8')
+        if not audit['passed']:
+            raise ValueError('Visual Contract blocked render: ' + '; '.join(audit['errors']))
+        print(f'PASS: visual contract ({report_path})', flush=True)
+
+    # Render (video with optional captions, then mux audio)
     basename = scene_path.stem
     silent_mp4 = outdir / f"{basename}_silent.mp4"
     final_mp4 = outdir / f"{basename}.mp4"
     render_py = Path(__file__).resolve().parent / "render.py"
     subprocess.run(
         [sys.executable, str(render_py), str(scene_path),
-         '--out', str(silent_mp4)],
+         '--timings', str(timing_path), '--out', str(silent_mp4)],
         check=True)
     print(f"SAVED {silent_mp4}", flush=True)
 
@@ -176,12 +189,13 @@ def main():
     p2 = sub.add_parser('render', help='Scene JSON + audio → final MP4')
     p2.add_argument('scene', help='Approved scene JSON')
     p2.add_argument('--outdir', default='work/ep01')
+    p2.add_argument('--contract', help='Shot Visual Contract JSON (strict structural gate)')
 
     args = ap.parse_args()
     if args.stage == 'prepare':
         stage_prepare(args.narration, args.outdir, args.voice, args.speed, args.engine)
     else:
-        result = stage_render(args.scene, args.outdir)
+        result = stage_render(args.scene, args.outdir, args.contract)
         print(f'PIPELINE COMPLETE: {result}')
 
 
