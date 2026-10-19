@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "project_id": "orders_two_routes",
+  "spec_id": "orders_shot_001",
+  "spec_revision": 1,
+  "spec_sha256": "567c17cc7290292375c42dc98e7dbf6253638148c69824426fae02625f49624c",
+  "implementation_commit": "example000001",
+  "attempt": 1,
+  "stage": "B",
+  "status": "prototype",
+  "artifacts": {
+    "source_paths": [
+      "shots/shot_01.py"
+    ],
+    "video_path": "previews/shot_01_silent.mp4",
+    "keyframe_paths": [
+      "previews/shot_01_frame_06.png"
+    ]
+  },
+  "checks": [
+    {
+      "name": "renderer_completed",
+      "result": "not_run",
+      "detail": "示例数据，未实际渲染"
+    }
+  ],
+  "deviations": [],
+  "notes": "仅说明交接格式，所有文件路径均为占位示例，不代表存在实际视频。"
+}
