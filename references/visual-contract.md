@@ -69,3 +69,27 @@
 ## 版本
 
 - v1.0 (2026-10-19)：初始版本。配合 technical-director 2.0。
+
+## v1.1 结构校验与使用方式
+
+本仓库的 `scripts/contract_check.py` 目前执行的是**结构覆盖检查**，不是实际视觉效果检查。校验规则：
+
+- 只检查 `shot_id` 指定、`scenes[*].id` 完全匹配的**一个镜头**；找不到或发现重名镜头会阻断。
+- 递归检查 `elements[*].children` 中的所有节点；其他镜头的 `contract` 标签不能冒充本镜头已完成。
+- `must_show` 与 `continuous_motion` 的每个 `id` 必须有相应 `contract` 标签，重复的需求 ID 会阻断。
+- `silent_downgrade: true` 在单独运行校验器且未开启严格模式时，只产生警告；`--strict` 始终阻断缺失。
+- **校验通过不证明画面对象真的出现、路径真的连续、物理关系正确。** 必须另行提供渲染视频给独立 QA 审核。
+
+```bash
+# 按原 Contract 的降级设置执行；报告可供模型消费
+python scripts/contract_check.py contracts/shot_02.json work/scene.json --report work/contract_report.json
+
+# 严格模式：任意缺失都阻断
+python scripts/contract_check.py contracts/shot_02.json work/scene.json --strict
+
+# 现有两阶段流水线的 render 阶段，选择性强制契约门禁
+# 严格校验通过才渲染；同一 timings.json 也会用于字幕烧录
+python scripts/auto_pipeline.py render work/scene.json --outdir work/ep01 --contract contracts/shot_02.json
+```
+
+`--contract` 为可选参数，既有不传 Contract 的旧项目仍可按原流程渲染；新的多模型交接项目建议始终提供。注意，`scene.json` 中目标镜头的 `id` 必须等于 Contract 的 `shot_id`。
