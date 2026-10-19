@@ -59,7 +59,7 @@ def media_files(delivery, extras):
 
 
 def create_manifest(spec, delivery, artifact_root, backend, artifact_name=None,
-                    run_url=None, extras=()):
+                    run_url=None, extras=(), location_url=None):
     errors = validate_bundle(spec, delivery)
     if errors:
         raise ValueError("Invalid handoff: " + "; ".join(errors))
@@ -69,6 +69,11 @@ def create_manifest(spec, delivery, artifact_root, backend, artifact_name=None,
         raise ValueError("Actions backend requires --artifact-name")
     if backend != "actions" and (artifact_name or run_url):
         raise ValueError("Artifact name/run URL only apply to actions backend")
+    if backend == "external":
+        if not location_url or not location_url.startswith("https://"):
+            raise ValueError("External backend requires HTTPS --location-url")
+    elif location_url:
+        raise ValueError("--location-url only applies to external backend")
     if run_url and not re.fullmatch(
             r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[1-9][0-9]*",
             run_url):
@@ -101,6 +106,8 @@ def create_manifest(spec, delivery, artifact_root, backend, artifact_name=None,
         manifest["storage"]["artifact_name"] = artifact_name
         if run_url:
             manifest["storage"]["run_url"] = run_url
+    if backend == "external":
+        manifest["storage"]["location_url"] = location_url
     validate_schema(manifest)
     return manifest
 
@@ -164,6 +171,7 @@ def main(argv=None):
     create.add_argument("--backend", choices=("actions", "external", "local"), default="local")
     create.add_argument("--artifact-name")
     create.add_argument("--run-url")
+    create.add_argument("--location-url")
     create.add_argument("--extra-file", action="append", default=[])
     create.add_argument("--out", required=True)
     verify = commands.add_parser("verify")
@@ -177,7 +185,7 @@ def main(argv=None):
             manifest = create_manifest(
                 read_json(args.spec), read_json(args.delivery),
                 args.artifact_root, args.backend, args.artifact_name,
-                args.run_url, args.extra_file)
+                args.run_url, args.extra_file, args.location_url)
             out = Path(args.out).resolve()
             root = Path(args.artifact_root).resolve()
             if not out.is_relative_to(root):
