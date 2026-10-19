@@ -10,7 +10,8 @@ from factcheck import check as check_claims
 SCHEMA=Path(__file__).resolve().parent.parent/'references'/'scene.schema.json'
 VALID_ANIMATIONS={'fade','slide','pop','draw','move'}
 CONTAINER_TYPES={'absolute','row','column','grid'}
-DRAW_TYPES={'text','card','icon','line','arrow','table','timeline','image'}
+from primitives import PRIMITIVES
+DRAW_TYPES={'text','card','icon','line','arrow','table','timeline','image'} | set(PRIMITIVES)
 
 
 def validate(data):

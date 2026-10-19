@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
+from primitives import PRIMITIVES
 from transitions import build_junctions, compose
 
 DEFAULT_THEME = {
@@ -250,6 +251,7 @@ def animated_box(box: Box, state: dict) -> Box:
     return Box(box.cx-box.w*factor/2+state['dx'],box.cy-box.h*factor/2+state['dy'],box.w*factor,box.h*factor)
 
 
+
 def _line_partial(draw, xy1, xy2, ratio, fill, width):
     p=max(0.,min(1.,ratio))
     if p<=0:return
@@ -357,6 +359,8 @@ def draw_item(layer: Image.Image, node: dict, box: Box, t: float, theme: dict, f
         if p>.97:
             r=min(15,max(5,box.w*.13))
             draw.polygon([(x2,y),(x2-r,y-r*.58),(x2-r,y+r*.58)],fill=color)
+    elif kind in PRIMITIVES:
+        PRIMITIVES[kind](draw, box, t, node, effective, col, fonts)
     elif kind=='table':
         _draw_table(layer,node,box,t,theme,fonts,state,asset_root,asset_cache)
     elif kind=='timeline':
