@@ -47,6 +47,10 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 新增 [Stage C 真实离线配音与 GitHub CI 测试流程](docs/STAGEC_CI_PILOT.md)：同一个 Pilot 001 测试 PR 中，自动生成测试中文解说的 `voice.wav`、可验证的分句 `timings.json`、`timings.srt` 和带 AAC 音轨的 MP4 预览；另一路继续生成 Stage B 无声视频供可选的 **手动** Gemini R5 独立视觉审查。配音按实际动画事件时间固定对齐：B 先进入补货队列、A 后到达发货站。两类制品明确隔离、绑定源代码 SHA，**正式配音仍为 draft，R5 不自动认可 Stage C 有声版本**。
 
+## Stage D：正式锁定配音、真实成片与人工发布门禁
+
+[查看 Stage D 离线构建与 R0–R7 人工交接说明](docs/STAGE_D_FINAL_HANDOFF.md)。新增 `workflow/build_stage_d_artifact.py`，仅当导演规格明确由人批准、旁白状态为 locked、真实 WAV/时间轴哈希吻合、正式音画事件契约为 approved 时，才允许实际渲染 Stage D 的 H.264/AAC MP4、真实抽帧和媒体 SHA256 清单，并生成 **pending 的全项独立 QA 模板**。缺少人类批准时构建**立即失败**；不会把 Stage C 测试配音冒充正式发布成片。后续沿用 R0 `record-qa`、`release-check` 和 R7 独立发布批准，全程支持本地离线，不启动付费 Gemini。当前 Pilot 文件仍是 draft，此 PR 不包含人为签发的正式配音或发布。
+
 ## Stage C 独立视听 QA（Gemini 或纯手动导入）
 
 [查看 Stage C R5 视听审核与本地导入指南](docs/R5_AV_AUTOMATION.md)。**付费模型审核只有人工指定 Stage C Run ID 才会执行**，同时要求 `R5_ENABLED=true` 和新增的 `R5_AV_ENABLED=true`。不使用 GitHub Actions 也可以：外部审核者实际观看含音轨 MP4、听原始 WAV，提交逐句观察 JSON，再由 `workflow/r5_av_manual.py` 离线验签、校验源媒体 SHA 和时间轴并生成 `av_qa_report.json` 与 `av_r5_audit.json`。Stage C 报告不等同 Stage D 正式发布批准；通用 `qa_report.json` 仍由现有 R0–R7 手动审核交接入口接收。
