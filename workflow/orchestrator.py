@@ -135,6 +135,10 @@ def prepare(spec_path, workdir, executor="muse", formal_assets=None):
             formal_assets["cues"], formal_assets["audio"],
             formal_assets["timings"], read_lock(formal_assets["script_lock"]),
             read_lock(formal_assets["voice_lock"]))
+    if formal_assets is None and (
+            spec["approval"]["status"] == "approved"
+            or spec["narration"]["status"] == "locked"):
+        raise ValueError("Approved/locked production requires --formal preproduction locks")
     digest = canonical_digest(spec)
     root.mkdir(parents=True, exist_ok=True)
     write_json(root / "director_spec.json", spec)
@@ -257,6 +261,8 @@ def receive(workdir, delivery_path, artifact_root, repository=None, pr=None,
     if state["status"] not in ("prepared", "published", "rework_requested"):
         raise ValueError("Cannot receive delivery in state " + state["status"])
     delivery = read_json(delivery_path)
+    if delivery.get("stage") == "D" and state.get("production_mode") != "formal":
+        raise ValueError("Stage D may only be received after formal R0 lock approval")
     if state.get("production_mode") == "formal":
         check_formal_artifact(root, state, spec, artifact_root)
     errors = validate_bundle(spec, delivery)
@@ -413,6 +419,8 @@ def release_check(workdir, artifact_root):
         raise ValueError("Release requires successful independent QA")
     delivery = read_json(root / "delivery.json")
     qa = read_json(root / "qa_report.json")
+    if state.get("production_mode") != "formal":
+        raise ValueError("Release blocked: script/storyboard and voice locks required before formal R4")
     if state.get("production_mode") == "formal":
         check_formal_artifact(root, state, spec, artifact_root)
     errors = validate_bundle(spec, delivery, qa, release=True, artifact_root=artifact_root)

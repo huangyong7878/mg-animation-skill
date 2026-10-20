@@ -203,6 +203,8 @@ class StageDTests(unittest.TestCase):
             "script_lock": self.script_lock_path,
             "voice_lock": self.voice_lock_path,
         }
+        with self.assertRaisesRegex(ValueError, "requires --formal"):
+            prepare(p, self.root / "no_formal")
         with self.assertRaisesRegex(ValueError, "Formal R4 requires"):
             prepare(p, self.root / "not_ready", formal_assets={})
         result = prepare(p, self.root / "formal_R4", formal_assets=assets)
@@ -278,6 +280,10 @@ class StageDTests(unittest.TestCase):
         manifest = json.loads((out / "media_manifest.json").read_text())
         self.assertEqual(verify_manifest(manifest, out, self.spec, delivery), [])
         self.assertEqual(manifest["storage"]["backend"], "local")
+        covered = {item["path"] for item in manifest["files"]}
+        self.assertTrue(set(SOURCES).issubset(covered))
+        self.assertTrue({"approvals/script_lock.json",
+                         "approvals/voice_lock.json"}.issubset(covered))
         # Test the actual formal R0 intake using precisely the same lock
         # records that R2/R3 and the voice reviewer had allegedly approved.
         from workflow.orchestrator import prepare, receive, release_check

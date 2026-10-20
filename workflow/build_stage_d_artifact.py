@@ -232,7 +232,7 @@ def build(spec_path, scene_path, plan_path, cue_path, script_path,
         "Stage D R4 offline render; no TTS/model call and no release approval.\n",
         encoding="utf-8")
     extras = ("director_spec.json", "narration.txt", "av_sync_report.json",
-              *APPROVALS,
+              *SOURCES, *APPROVALS,
               "qa_template.json", "release_checklist.md", "build_log.txt")
     manifest = create_manifest(spec, delivery, out, backend="local", extras=extras)
     save(out / "media_manifest.json", manifest)
