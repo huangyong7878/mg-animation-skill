@@ -72,6 +72,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          R5_ENABLED: ${{ vars.R5_ENABLED }}
           R5_PROVIDER: ${{ vars.R5_PROVIDER }}
           R5_MODEL: ${{ vars.R5_MODEL }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
