@@ -43,6 +43,14 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 **尚未自动调用 Muse 或多模态审片模型**，未完成的人工 QA 决策始终为 pending；不自动审批或发布。
 
+## R5 自动独立视觉 QA（可切换模型）
+
+已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini`、`openai` 或 `deepseek`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
+
+DeepSeek 视觉审查请使用 `R5_MODEL=deepseek-flash`，图片输入通过 Responses API；不直接传 MP4，连续运动证据不足时报告应为 `pending`。
+
+模型密钥必须在 GitHub Actions Secrets 配置，绝不能写入仓库。真实渲染 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12) 已合并；自动审片需合并本 R5 PR，并配置服务商与 `R5_ENABLED=true` 后才能启用。详情见上述文档。
+
 ## 所有 AI 模型的统一入口：AGENTS.md
 
 无论由 ChatGPT、Claude、Gemini、Muse、DeepSeek 或 Codex 接手，请先阅读 **[AGENTS.md](AGENTS.md)**，选择 R0–R7 对应角色，再跳转至 [完整多模型操作手册](docs/MULTI_MODEL_PLAYBOOK.md)。该文件不是模型厂商专属指令；无法自动读取 AGENTS.md 的平台，需要明确发送“先读 AGENTS.md”或提供文件附件。
