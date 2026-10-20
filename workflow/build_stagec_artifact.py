@@ -13,6 +13,12 @@ import sys
 import wave
 from pathlib import Path
 
+# Direct execution (python workflow/build_stagec_artifact.py) sets sys.path[0]
+# to workflow/. Add the checked-out repository root for scripts + workflow imports.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 try:
     from scripts.narrate import create_narration, RATE
     from workflow.check_handoff import canonical_digest, validate_bundle
@@ -22,7 +28,6 @@ except ModuleNotFoundError:
     from check_handoff import canonical_digest, validate_bundle
     from media_manifest import create_manifest, verify_manifest
 
-ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATHS = (
     "work/orders_pilot/stagec_narration.json",
     "work/orders_pilot/scene.json",
