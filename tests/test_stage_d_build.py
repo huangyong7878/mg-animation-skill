@@ -135,7 +135,7 @@ class StageDTests(unittest.TestCase):
 
     def test_draft_cue_or_test_only_plan_cannot_be_staged(self):
         self.plan["test_only"] = True
-        with self.assertRaisesRegex(ValueError, "test narration"):
+        with self.assertRaisesRegex(ValueError, "test_only narration"):
             self.check()
         self.plan["test_only"] = False
         self.cues["status"] = "draft"
@@ -278,6 +278,28 @@ class StageDTests(unittest.TestCase):
         manifest = json.loads((out / "media_manifest.json").read_text())
         self.assertEqual(verify_manifest(manifest, out, self.spec, delivery), [])
         self.assertEqual(manifest["storage"]["backend"], "local")
+        # Test the actual formal R0 intake using precisely the same lock
+        # records that R2/R3 and the voice reviewer had allegedly approved.
+        from workflow.orchestrator import prepare, receive, release_check
+        assets = {
+            "script": self.script, "storyboard": self.storyboard,
+            "plan": self.plan_path, "cues": self.cue_path,
+            "audio": self.wav, "timings": self.timings,
+            "script_lock": self.script_lock_path,
+            "voice_lock": self.voice_lock_path,
+        }
+        formal = self.root / "formal_intake"
+        prepare(files["spec.json"], formal, formal_assets=assets)
+        imported_lock = out / "approvals/voice_lock.json"
+        correct_lock = imported_lock.read_bytes()
+        imported_lock.write_bytes(correct_lock + b" ")
+        with self.assertRaisesRegex(ValueError, "changed|lock"):
+            receive(formal, out / "delivery.json", out)
+        imported_lock.write_bytes(correct_lock)
+        self.assertEqual(receive(formal, out / "delivery.json", out)["status"],
+                         "implementation_received")
+        with self.assertRaisesRegex(ValueError, "Release requires"):
+            release_check(formal, out)
         (out / "media/voice.wav").write_bytes(b"tamper")
         self.assertTrue(verify_manifest(manifest, out, self.spec, delivery))
         with self.assertRaisesRegex(ValueError, "overwrite"):
