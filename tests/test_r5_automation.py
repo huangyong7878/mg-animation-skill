@@ -13,7 +13,7 @@ from workflow.r5_review import (
     call_gemini, call_openai, parse_model_report, make_prompt,
     verify_inputs, run_review, safe_model,
 )
-from workflow.r5_pr_feedback import safe_event, publish, comment_body
+from workflow.r5_pr_feedback import safe_event, publish, comment_body, preflight
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "huangyong7878/mg-animation-skill"
@@ -181,6 +181,29 @@ class TestR5PRComments(unittest.TestCase):
         self.assertEqual(len(self.posts), 1)
         self.assertIn("R5 Independent Visual QA", self.posts[0])
         self.assertNotIn("merge this pull request", self.posts[0])
+
+    def test_preflight_before_paid_model_call(self):
+        result = preflight(event(), REPO, "token", self.fake_api)
+        self.assertTrue(result["should_run"])
+        self.assertEqual(result["pr"], 7)
+        self.assertEqual(self.posts, [])
+
+        def seen(method, endpoint, payload):
+            if endpoint.endswith("comments?per_page=100"):
+                return [{"body": "<!-- mg-r5 run:98765 sha:" + SHA + " -->"}]
+            return self.fake_api(method, endpoint, payload)
+
+        skip = preflight(event(), REPO, "token", seen)
+        self.assertFalse(skip["should_run"])
+        self.assertEqual(self.posts, [])
+
+        def stale(method, endpoint, payload):
+            if endpoint.endswith("/pulls/7"):
+                return {"state": "open", "head": {"sha": "b" * 40}}
+            return self.fake_api(method, endpoint, payload)
+
+        with self.assertRaisesRegex(ValueError, "HEAD changed"):
+            preflight(event(), REPO, "token", stale)
 
     def test_no_duplicate_comment(self):
         def fake(method, endpoint, payload):
