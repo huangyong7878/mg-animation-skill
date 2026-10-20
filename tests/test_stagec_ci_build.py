@@ -4,6 +4,7 @@ The separate GitHub Actions job actually runs eSpeak + real ffmpeg render.
 Tests here do not claim an AI independently reviewed audiovisual content.
 """
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -92,6 +93,14 @@ class StageCSmokeTest(unittest.TestCase):
         bad["streams"][0]["nb_frames"] = "311"
         with self.assertRaisesRegex(ValueError, "missing expected"):
             check_preview_video(bad, SPEC)
+
+    def test_direct_cli_imports_work_when_python_runs_file(self):
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "workflow/build_stagec_artifact.py"), "--help"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--source-sha", completed.stdout)
 
     def test_invalid_source_sha_fails_without_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
