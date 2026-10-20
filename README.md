@@ -43,11 +43,15 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 **尚未自动调用 Muse 或多模态审片模型**，未完成的人工 QA 决策始终为 pending；不自动审批或发布。
 
+## Stage C 配音自动化试点（测试稿，不构成正式发布批准）
+
+新增 [Stage C 真实离线配音与 GitHub CI 测试流程](docs/STAGEC_CI_PILOT.md)：同一个 Pilot 001 测试 PR 中，自动生成测试中文解说的 `voice.wav`、可验证的分句 `timings.json`、`timings.srt` 和带 AAC 音轨的 MP4 预览；另一路继续生成 Stage B 无声视频供可选的 **手动** Gemini R5 独立视觉审查。配音按实际动画事件时间固定对齐：B 先进入补货队列、A 后到达发货站。两类制品明确隔离、绑定源代码 SHA，**正式配音仍为 draft，R5 不自动认可 Stage C 有声版本**。
+
 ## R5 手动独立视觉 QA（可切换模型，防止重复计费）
 
 [查看 R5 模型审核配置与安全说明](docs/R5_AUTOMATION.md)。**R5 已改为只有人工点选 GitHub Actions → R5 Independent Visual QA → Run workflow，并明确输入某个已成功的 Pilot PR 渲染 Run ID 才会调用 Gemini/OpenAI/DeepSeek。** `R5_ENABLED=true` 只是允许审核，不会因为 PR push 或 Stage C 自动构建而启动付费请求；关闭时也无法手动发出模型调用。R5 前置检查校验真实 GitHub Run、同仓库开放 PR 的最新 SHA、媒体制品和已有审核评论；每轮最多一次模型 API 请求，无自动重试。不自动合并、不批准正式发布。
 
-Gemini 原生审核 Stage B 无声 MP4；OpenAI 和 DeepSeek 共用抽帧版 OpenAI Responses 客户端。Stage C 测试音频未因此完成独立视听 QA，正式音频与 Stage D 仍需单独审批。
+Gemini 原生审核 Stage B 无声 MP4；OpenAI 和 DeepSeek 共用抽帧版 OpenAI Responses 客户端。Stage C 的 R3 草稿音画契约（`stagec_av_cues.json`）现在会对照 R4 动画事件时间轴和实际 TTS 时间戳，在构建前后失败即阻断，并生成 `av_sync_report.json`；但这种机械检查不等于已经独立看过视频、听过语音。Stage C 测试音频未因此完成独立视听 QA，正式音频与 Stage D 仍需单独审批。
 
 ## 所有 AI 模型的统一入口：AGENTS.md
 

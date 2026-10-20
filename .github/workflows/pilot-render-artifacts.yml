@@ -9,6 +9,10 @@ on:
       - 'work/orders_pilot/scene.json'
       - 'examples/workflow_orders_spec.json'
       - 'workflow/build_pilot_artifact.py'
+      # A Stage C pilot PR also renders its existing Stage B visual-review baseline.
+      - 'workflow/build_stagec_artifact.py'
+      - 'work/orders_pilot/stagec_narration.json'
+      - '.github/workflows/stagec-audio-artifacts.yml'
       - 'workflow/qa_evidence.py'
       - 'workflow/media_manifest.py'
       - 'workflow/role_pack.py'

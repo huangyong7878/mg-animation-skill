@@ -1,0 +1,26 @@
+{
+  "narration": {
+    "segments": [
+      {
+        "id": "intro",
+        "text": "两张订单，同时下单。",
+        "start": 0,
+        "pause_after": 0.35
+      },
+      {
+        "id": "out_of_stock",
+        "text": "库存不足，订单B等待补货。",
+        "start": 5.9,
+        "pause_after": 0.15
+      },
+      {
+        "id": "in_stock",
+        "text": "库存充足，订单A发货。",
+        "start": 9.55,
+        "pause_after": 0.1
+      }
+    ]
+  },
+  "test_only": true,
+  "notes": "Stage C engineering smoke test. Explicit cues follow real orderflow animation markers: B reaches restock queue before A ships. Unapproved draft voice, NOT formal aligned narration or Stage D release."
+}
