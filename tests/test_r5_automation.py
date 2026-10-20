@@ -11,7 +11,7 @@ from unittest.mock import patch
 from workflow.check_handoff import canonical_digest, required_checks
 from workflow.r5_review import (
     call_gemini, call_openai, parse_model_report, make_prompt,
-    verify_inputs, run_review, safe_model,
+    verify_inputs, run_review, safe_model, is_r5_enabled, main as r5_main,
 )
 from workflow.r5_pr_feedback import safe_event, publish, comment_body, preflight
 
@@ -46,6 +46,37 @@ def event():
     return {"workflow_run": {"name": "Pilot 001 Render and QA Artifact",
             "event": "pull_request", "conclusion": "success",
             "head_repository": {"full_name": REPO}, "head_sha": SHA, "id": RUN}}
+
+
+class TestR5KillSwitch(unittest.TestCase):
+    def test_enabled_only_with_exact_true(self):
+        self.assertTrue(is_r5_enabled("true"))
+        for setting in (None, "", "false", "TRUE", "True", "1", "on", " true"):
+            with self.subTest(setting=setting):
+                self.assertFalse(is_r5_enabled(setting))
+
+    def test_disabled_cli_never_reaches_model_or_artifact(self):
+        args = [
+            "--artifact-root", "nonexistent",
+            "--out", "nonexistent",
+            "--source-sha", "a" * 40,
+            "--artifact-name", "mg-test",
+            "--run-id", "42",
+            "--provider", "gemini", "--model", "gemini-2.5-flash",
+        ]
+        for setting in (None, "false", "TRUE"):
+            env = {} if setting is None else {"R5_ENABLED": setting}
+            with self.subTest(setting=setting):
+                with patch.dict("os.environ", env, clear=True):
+                    with patch("workflow.r5_review.run_review") as paid_call:
+                        self.assertEqual(r5_main(args), 1)
+                        paid_call.assert_not_called()
+
+    def test_workflow_is_default_off(self):
+        yaml = (ROOT / ".github/workflows/r5-visual-qa.yml").read_text()
+        self.assertIn("vars.R5_ENABLED == 'true' &&", yaml)
+        self.assertIn("R5_ENABLED: ${{ vars.R5_ENABLED }}", yaml)
+        self.assertIn("github.event.workflow_run.event == 'pull_request'", yaml)
 
 
 class TestR5ModelAdapters(unittest.TestCase):
