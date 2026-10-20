@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from workflow.build_stagec_artifact import (
-    SOURCE_PATHS, require_plan, check_timing_files,
+    SOURCE_PATHS, CUE_SEQUENCE, CUE_WINDOWS, require_plan, check_timing_files,
     check_preview_video, build,
 )
 from workflow.check_handoff import validate_bundle
@@ -29,6 +29,10 @@ class StageCSmokeTest(unittest.TestCase):
     def test_test_only_plan_and_draft_director(self):
         segments = require_plan(SPEC, SCENE, PLAN)
         self.assertEqual(len(segments), 3)
+        self.assertEqual(tuple(s["id"] for s in segments), CUE_SEQUENCE)
+        self.assertLess(segments[1]["start"], segments[2]["start"])
+        self.assertAlmostEqual(segments[1]["start"], 5.9)
+        self.assertAlmostEqual(segments[2]["start"], 9.55)
         self.assertEqual(SPEC["approval"]["status"], "draft")
         self.assertEqual(SPEC["narration"]["status"], "draft")
         self.assertTrue(PLAN["test_only"])
@@ -50,6 +54,19 @@ class StageCSmokeTest(unittest.TestCase):
         scene["canvas"]["fps"] = 30
         with self.assertRaisesRegex(ValueError, "fps"):
             require_plan(SPEC, scene, PLAN)
+
+        swapped = json.loads(json.dumps(PLAN))
+        swapped["narration"]["segments"][1:] = list(reversed(swapped["narration"]["segments"][1:]))
+        with self.assertRaisesRegex(ValueError, "B-then-A"):
+            require_plan(SPEC, SCENE, swapped)
+        wrong_words = json.loads(json.dumps(PLAN))
+        wrong_words["narration"]["segments"][1]["text"] = "库存充足，订单A发货。"
+        with self.assertRaisesRegex(ValueError, "id/text"):
+            require_plan(SPEC, SCENE, wrong_words)
+        wrong_start = json.loads(json.dumps(PLAN))
+        wrong_start["narration"]["segments"][1]["start"] = 3.25
+        with self.assertRaisesRegex(ValueError, "animation window"):
+            require_plan(SPEC, SCENE, wrong_start)
 
     def test_wrong_wav_duration_or_segments_fail(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -74,6 +91,45 @@ class StageCSmokeTest(unittest.TestCase):
             timings["segments"].pop()
             with self.assertRaisesRegex(ValueError, "segment count"):
                 check_timing_files(PLAN, timings, wav, srt, 13)
+
+    def test_real_animation_event_markers_and_measured_tts_windows(self):
+        from scripts.primitives.orderflow import PILOT_EVENT_SECONDS
+        self.assertAlmostEqual(PILOT_EVENT_SECONDS["branch_split"], 5.8)
+        self.assertAlmostEqual(PILOT_EVENT_SECONDS["order_b_queue_arrival"], 8.4)
+        self.assertAlmostEqual(PILOT_EVENT_SECONDS["order_a_ship_arrival"], 10.0)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            wav = root / "voice.wav"
+            with wave.open(str(wav), "wb") as output:
+                output.setnchannels(1)
+                output.setsampwidth(2)
+                output.setframerate(22050)
+                output.writeframes(b"\0\0" * (13 * 22050))
+            srt = root / "timings.srt"
+            srt.write_text("\n".join(x["text"] for x in PLAN["narration"]["segments"]),
+                           encoding="utf-8")
+            measured = {
+                "duration": 13.0,
+                "segments": [
+                    {"id": "intro", "text": PLAN["narration"]["segments"][0]["text"],
+                     "start": 0.0, "end": 2.8585,
+                     "alignment": "synthesized_segment_exact"},
+                    {"id": "out_of_stock", "text": PLAN["narration"]["segments"][1]["text"],
+                     "start": 5.9, "end": 9.24,
+                     "alignment": "synthesized_segment_exact"},
+                    {"id": "in_stock", "text": PLAN["narration"]["segments"][2]["text"],
+                     "start": 9.55, "end": 12.59,
+                     "alignment": "synthesized_segment_exact"},
+                ]
+            }
+            self.assertEqual(check_timing_files(PLAN, measured, wav, srt, 13.0)["narrated_segments"], 3)
+            measured["segments"][1]["start"] = 3.2585
+            with self.assertRaisesRegex(ValueError, "outside actual visual event"):
+                check_timing_files(PLAN, measured, wav, srt, 13.0)
+            measured["segments"][1]["start"] = 5.9
+            measured["segments"][1]["end"] = 9.8
+            with self.assertRaisesRegex(ValueError, "ends too late"):
+                check_timing_files(PLAN, measured, wav, srt, 13.0)
 
     def test_av_metadata_checks_real_audio_and_video(self):
         probe = {

@@ -14,6 +14,14 @@ import math
 
 from . import register
 
+# Timeline markers shared with the Stage C narration validation.
+# These are real order-card motion waypoint times, not arbitrary TTS estimates.
+PILOT_EVENT_SECONDS = {
+    "branch_split": 5.8,
+    "order_b_queue_arrival": 8.4,
+    "order_a_ship_arrival": 10.0,
+}
+
 
 # ---- palette (muted, low saturation) ----
 _PAPER = (231, 222, 212, 255)
@@ -209,18 +217,18 @@ def draw(draw, box, t, node, style, col, fonts):
     a_keys = [
         (1.8, placed_ax, placed_ay),
         (4.8, check_cx, check_cy - 48),
-        (5.8, check_cx, check_cy - 48),
+        (PILOT_EVENT_SECONDS["branch_split"], check_cx, check_cy - 48),
         (7.2, pick_x, pick_y),
         (8.6, pack_x, pack_y),
-        (10.0, ship_x, ship_y),
+        (PILOT_EVENT_SECONDS["order_a_ship_arrival"], ship_x, ship_y),
         (13.0, ship_x, ship_y),
     ]
     # B keyframes: placed -> check -> restock queue
     b_keys = [
         (1.8, placed_bx, placed_by),
         (4.8, check_cx, check_cy + 48),
-        (5.8, check_cx, check_cy + 48),
-        (8.4, queue_x, queue_y),
+        (PILOT_EVENT_SECONDS["branch_split"], check_cx, check_cy + 48),
+        (PILOT_EVENT_SECONDS["order_b_queue_arrival"], queue_x, queue_y),
         (13.0, queue_x, queue_y),
     ]
     ax, ay = _travel(a_keys, t)

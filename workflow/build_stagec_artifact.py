@@ -21,20 +21,44 @@ if str(ROOT) not in sys.path:
 
 try:
     from scripts.narrate import create_narration, RATE
+    from scripts.primitives.orderflow import PILOT_EVENT_SECONDS
     from workflow.check_handoff import canonical_digest, validate_bundle
     from workflow.media_manifest import create_manifest, verify_manifest
 except ModuleNotFoundError:
     from narrate import create_narration, RATE
+    from scripts.primitives.orderflow import PILOT_EVENT_SECONDS
     from check_handoff import canonical_digest, validate_bundle
     from media_manifest import create_manifest, verify_manifest
 
 SOURCE_PATHS = (
     "work/orders_pilot/stagec_narration.json",
     "work/orders_pilot/scene.json",
+    "scripts/primitives/orderflow.py",
+    "scripts/primitives/__init__.py",
     "scripts/narrate.py",
     "scripts/render.py",
 )
 SHA = re.compile(r"^[0-9a-f]{40}$")
+
+# Pilot-specific narration alignment windows are derived from real motion
+# markers in scripts/primitives/orderflow.py. Times are wall-clock seconds.
+# (allowed start min, max, latest end): allow small synthesis variation,
+# but never claim a voice/visual alignment we didn't actually check.
+CUE_WINDOWS = {
+    "intro": (0.0, 0.3, 3.3),
+    "out_of_stock": (PILOT_EVENT_SECONDS["branch_split"],
+                     PILOT_EVENT_SECONDS["branch_split"] + 0.35,
+                     PILOT_EVENT_SECONDS["order_b_queue_arrival"] + 1.0),
+    "in_stock": (PILOT_EVENT_SECONDS["order_a_ship_arrival"] - 0.6,
+                 PILOT_EVENT_SECONDS["order_a_ship_arrival"] - 0.1,
+                 12.9),
+}
+CUE_SEQUENCE = ("intro", "out_of_stock", "in_stock")
+CUE_KEYWORDS = {
+    "intro": ("两张订单",),
+    "out_of_stock": ("库存不足", "订单B"),
+    "in_stock": ("库存充足", "订单A"),
+}
 
 
 def run(argv, log):
@@ -67,11 +91,24 @@ def require_plan(spec, scene, plan):
     segments = plan.get("narration", {}).get("segments")
     if not isinstance(segments, list) or not (1 <= len(segments) <= 10):
         raise ValueError("Narration plan needs 1..10 explicit test segments")
+    ids = tuple(item.get("id") if isinstance(item, dict) else None
+                for item in segments)
+    if ids != CUE_SEQUENCE:
+        raise ValueError("Stage C narration cue order must follow actual B-then-A picture timeline")
     for item in segments:
         if not isinstance(item, dict) or not isinstance(item.get("text"), str):
             raise ValueError("Each test segment needs text")
         if not item["text"].strip():
             raise ValueError("Empty narration text is forbidden")
+        cue = item["id"]
+        if not all(token in item["text"] for token in CUE_KEYWORDS[cue]):
+            raise ValueError(f"Narration id/text does not match the {cue} visual branch")
+        start = item.get("start")
+        if type(start) not in (int, float):
+            raise ValueError(f"Missing explicit start time for {cue} visual cue")
+        minimum, maximum, _ = CUE_WINDOWS[cue]
+        if not minimum <= float(start) <= maximum:
+            raise ValueError(f"Narration cue {cue} start {start} outside the animation window")
     return segments
 
 
@@ -103,6 +140,14 @@ def check_timing_files(plan, timing, wav_path, srt_path, seconds):
             raise ValueError(f"TTS segment {index} is overlapping/outside duration")
         if timed.get("alignment") != "synthesized_segment_exact":
             raise ValueError("Missing measured synthesis timing provenance")
+        cue = expected["id"]
+        min_start, max_start, latest_end = CUE_WINDOWS[cue]
+        if not min_start - .06 <= start <= max_start + .06:
+            raise ValueError(f"Narration cue {cue} starts outside actual visual event window")
+        if abs(start - expected["start"]) > .07:
+            raise ValueError(f"Narration cue {cue} started away from requested visual event time")
+        if end > latest_end + .05:
+            raise ValueError(f"Narration cue {cue} ends too late for its visual event window")
         prev_end = end
     subtitles = srt_path.read_text(encoding="utf-8")
     for item in segments:
