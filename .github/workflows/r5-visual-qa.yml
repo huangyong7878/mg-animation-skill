@@ -25,7 +25,7 @@ jobs:
           github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.event == 'pull_request' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
-          (vars.R5_PROVIDER == 'gemini' || vars.R5_PROVIDER == 'openai') }}
+          (vars.R5_PROVIDER == 'gemini' || vars.R5_PROVIDER == 'openai' || vars.R5_PROVIDER == 'deepseek') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -72,6 +72,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           R5_ENABLED: ${{ vars.R5_ENABLED }}
           R5_PROVIDER: ${{ vars.R5_PROVIDER }}
           R5_MODEL: ${{ vars.R5_MODEL }}
