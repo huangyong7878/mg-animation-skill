@@ -75,7 +75,7 @@ jobs:
         if: success()
         run: |
           echo "### Stage C: offline TTS / measured timings / AV draft" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Commit:** \$${{ steps.build.outputs.source_sha }}\$" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Artifact:** \$${{ steps.build.outputs.artifact_name }}\$" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** ${{ steps.build.outputs.source_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Artifact:** ${{ steps.build.outputs.artifact_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Files:** media/voice.wav, media/timings.json, media/timings.srt, media/stagec_av_preview.mp4" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Not released:** spec, script and audio approval remain draft. R5 Gemini has not reviewed this AV preview." >> "$GITHUB_STEP_SUMMARY"
