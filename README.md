@@ -43,6 +43,10 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 **尚未自动调用 Muse 或多模态审片模型**，未完成的人工 QA 决策始终为 pending；不自动审批或发布。
 
+## Stage C 配音自动化试点（测试稿，无声画发布批准）
+
+新增 [Stage C 真实离线配音与 GitHub CI 测试流程](docs/STAGEC_CI_PILOT.md)：同一个 Pilot 001 测试 PR 中，自动生成测试中文解说的 `voice.wav`、可验证的分句 `timings.json`、`timings.srt` 和带 AAC 音轨的 MP4 预览；另一路继续生成 Stage B 无声视频供可选的 Gemini R5 独立视觉审查。两类制品明确隔离、绑定源代码 SHA，**正式配音仍为 draft，R5 不自动认可 Stage C 有声版本**。
+
 ## R5 自动独立视觉 QA（可切换模型）
 
 已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini`、`openai` 或 `deepseek`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
