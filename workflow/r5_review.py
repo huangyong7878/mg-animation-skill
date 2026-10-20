@@ -221,110 +221,111 @@ def call_gemini(prompt, video, evidence_root, model, api_key, transport=None):
     }
 
 
-def call_openai(prompt, video, evidence_root, model, api_key, transport=None):
-    # OpenAI Responses vision uses timed-frame images; not a native MP4 upload.
-    # Contact sheets + sampled frames can be insufficient for motion continuity:
-    # the review prompt explicitly forces pending where evidence is insufficient.
-    content = [{"type": "input_text", "text": prompt +
-                "\n输入是从原始 MP4 校验抽出的时间标记连续帧和联系表；"
-                "你没有看到原生视频。如果某条连续运动证据不足，必须 pending。"}]
-    for image in select_images(evidence_root, count=16):
-        mime = "image/png" if image.suffix.lower() == ".png" else "image/jpeg"
-        content.append({
-            "type": "input_image", "detail": "high",
-            "image_url": f"data:{mime};base64," +
-                         base64.b64encode(image.read_bytes()).decode("ascii"),
-        })
-    response = http_post("https://api.openai.com/v1/responses", {
-        "Authorization": f"Bearer {api_key}",
-    }, {
-        "model": safe_model(model),
-        "input": [{"role": "user", "content": content}],
+# Both providers implement OpenAI Responses protocol: one shared media adapter.
+# The differences are configuration/capability constraints, not copied HTTP code.
+OPENAI_COMPATIBLE_PROVIDERS = {
+    "openai": {
+        "endpoint": "https://api.openai.com/v1/responses",
         "max_output_tokens": 4500,
-        "text": {"format": {"type": "json_object"}},
-    }, transport)
-    chunks = [entry.get("text", "")
-              for output in response.get("output", [])
-              for entry in output.get("content", [])
-              if entry.get("type") == "output_text"]
-    if not chunks:
-        raise ValueError("No usable OpenAI vision response")
-    usage = response.get("usage", {})
-    return "".join(chunks), {
-        "input_tokens": usage.get("input_tokens"),
-        "output_tokens": usage.get("output_tokens"),
-        "total_tokens": usage.get("total_tokens"),
-    }
+        "vision_models": None,  # Provider catalog decides; credentials may limit access.
+        "extra_parameters": {},
+    },
+    "deepseek": {
+        "endpoint": "https://api.deepseek.com/responses",
+        "max_output_tokens": 5500,
+        "vision_models": ("deepseek-flash",),  # DeepSeek V4 Pro lacks image support.
+        "extra_parameters": {"reasoning": {"effort": "none"}, "stream": False},
+    },
+}
 
 
-def call_deepseek(prompt, video, evidence_root, model, api_key, transport=None):
-    """DeepSeek Flash Vision via Responses API, verified timed frames (no native MP4).
+def timed_image_content(prompt, evidence_root, count=16):
+    """OpenAI-compatible Responses input_image blocks, chronological evidence map.
 
-    Official documentation (Oct 2026): deepseek-flash accepts image input;
-    deepseek-v4-pro does not. Video/audio containers are not accepted here.
+    Neither provider receives native MP4: limited frames alone cannot always
+    establish uninterrupted motion. The model must mark uncertain motion pending.
     """
-    if model != "deepseek-flash":
-        raise ValueError("DeepSeek R5 vision requires R5_MODEL=deepseek-flash")
-    images = select_images(evidence_root, count=16)
+    images = select_images(evidence_root, count=count)
     if not images:
-        raise ValueError("DeepSeek R5 requires verified video frame evidence")
-
-    # Include the precise requested time (or sheet label) adjacent to each image.
-    # The image provider sees these as user data, not instructions from the source.
-    content = [{
-        "type": "input_text",
-        "text": prompt + (
-            "\n[审查媒介限制] DeepSeek 本次只收到由真实 MP4 提取并经校验的抽样图片，"
-            "没有直接观看 MP4。每张图前面标注其时间或联系表文件名。"
-            "图像之间可能存在尚未观察到的运动；对无法充分证实的 continuous_motion"
-            " 必须 result=needs_review，decision=pending。"
-            "请仅返回 JSON 格式的审核结论。"
-        ),
-    }]
-    for item in images:
-        # The filenames are generated from verified evidence manifests, not paths
-        # submitted to the provider or executable model instructions.
-        name = item.name
-        match = re.fullmatch(r"t(\d{8})\.png", name)
-        when = f"{int(match.group(1))/1000:.3f}s" if match else name
-        content.append({"type": "input_text", "text": f"Evidence: {when}"})
+        raise ValueError("Vision QA requires verified video frame evidence")
+    labels = []
+    content = []
+    for n, item in enumerate(images, 1):
+        match = re.fullmatch(r"t(\d{8})\.png", item.name)
+        at = f"{int(match.group(1)) / 1000:.3f}s" if match else item.name
+        labels.append(f"{n}: {at}")
         mime = "image/png" if item.suffix.lower() == ".png" else "image/jpeg"
         content.append({
             "type": "input_image",
             "detail": "high",
-            "image_url": f"data:{mime};base64,"
+            "image_url": "data:" + mime + ";base64,"
                          + base64.b64encode(item.read_bytes()).decode("ascii"),
         })
-    response = http_post(
-        "https://api.deepseek.com/responses",
-        {"Authorization": f"Bearer {api_key}"},
-        {
-            "model": model,
-            "input": [{"role": "user", "content": content}],
-            "max_output_tokens": 5500,
-            "reasoning": {"effort": "none"},
-            "text": {"format": {"type": "json_object"}},
-            "stream": False,
-        },
-        transport,
+    instruction = (
+        "\n[证据形式] 以下图像来自经过 SHA256 校验的原始 MP4 抽帧。"
+        "你没有直接观看 MP4。图像次序和时间对应如下：\n"
+        + "\n".join(labels)
+        + "\n如果某条连续运动证据不足，必须返回 needs_review 和 pending，"
+          "不得因抽帧之间没有异常就推断无瞬移。"
     )
+    return [{"type": "input_text", "text": prompt + instruction}] + content
+
+
+def parse_responses_output(response, provider):
+    """Shared OpenAI Responses text/usage decoding, fail closed for partial output."""
     if response.get("status") not in (None, "completed"):
-        raise ValueError("DeepSeek R5 response was incomplete or failed")
+        raise ValueError(f"{provider} R5 response was incomplete or failed")
     chunks = [
-        segment.get("text", "")
-        for output in response.get("output", [])
-        if output.get("type", "message") == "message"
-        for segment in output.get("content", [])
-        if segment.get("type") == "output_text"
+        part.get("text", "")
+        for entry in response.get("output", [])
+        if entry.get("type", "message") == "message"
+        for part in entry.get("content", [])
+        if part.get("type") == "output_text"
     ]
     if not chunks or not "".join(chunks).strip():
-        raise ValueError("No usable DeepSeek vision response")
+        raise ValueError(f"No usable {provider} vision response")
     usage = response.get("usage", {})
     return "".join(chunks), {
         "input_tokens": usage.get("input_tokens"),
         "output_tokens": usage.get("output_tokens"),
         "total_tokens": usage.get("total_tokens"),
     }
+
+
+def call_openai_compatible(prompt, video, evidence_root, model, api_key,
+                           provider, transport=None):
+    """Common request builder for any tested OpenAI Responses-compatible provider."""
+    config = OPENAI_COMPATIBLE_PROVIDERS[provider]
+    safe_model(model)
+    allowed = config["vision_models"]
+    if allowed is not None and model not in allowed:
+        raise ValueError(f"{provider} R5 vision requires R5_MODEL={', '.join(allowed)}")
+    if not api_key:
+        raise ValueError(f"{provider.upper()}_API_KEY is missing")
+    # video is intentionally not passed as native MP4: both use the same images.
+    content = timed_image_content(prompt, evidence_root)
+    payload = {
+        "model": model,
+        "input": [{"role": "user", "content": content}],
+        "max_output_tokens": config["max_output_tokens"],
+        "text": {"format": {"type": "json_object"}},
+        **config["extra_parameters"],
+    }
+    response = http_post(
+        config["endpoint"], {"Authorization": f"Bearer {api_key}"},
+        payload, transport
+    )
+    return parse_responses_output(response, provider)
+
+
+def call_openai(prompt, video, evidence_root, model, api_key, transport=None):
+    return call_openai_compatible(prompt, video, evidence_root, model, api_key,
+                                  "openai", transport)
+
+
+def call_deepseek(prompt, video, evidence_root, model, api_key, transport=None):
+    return call_openai_compatible(prompt, video, evidence_root, model, api_key,
+                                  "deepseek", transport)
 
 
 ADAPTERS = {"gemini": call_gemini, "openai": call_openai, "deepseek": call_deepseek}
