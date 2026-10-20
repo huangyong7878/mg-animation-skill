@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent R5 visual QA: configurable Gemini-video / OpenAI-timed-frames adapters.
+"""Independent R5 visual QA: configurable Gemini-video / OpenAI-DeepSeek timed-frame adapters.
 
 Only use in a trusted workflow checkout. Treat artifact JSON and media as data,
 never execute uploaded code. A model answer is NOT automatically a release approval.
@@ -257,7 +257,77 @@ def call_openai(prompt, video, evidence_root, model, api_key, transport=None):
     }
 
 
-ADAPTERS = {"gemini": call_gemini, "openai": call_openai}
+def call_deepseek(prompt, video, evidence_root, model, api_key, transport=None):
+    """DeepSeek Flash Vision via Responses API, verified timed frames (no native MP4).
+
+    Official documentation (Oct 2026): deepseek-flash accepts image input;
+    deepseek-v4-pro does not. Video/audio containers are not accepted here.
+    """
+    if model != "deepseek-flash":
+        raise ValueError("DeepSeek R5 vision requires R5_MODEL=deepseek-flash")
+    images = select_images(evidence_root, count=16)
+    if not images:
+        raise ValueError("DeepSeek R5 requires verified video frame evidence")
+
+    # Include the precise requested time (or sheet label) adjacent to each image.
+    # The image provider sees these as user data, not instructions from the source.
+    content = [{
+        "type": "input_text",
+        "text": prompt + (
+            "\n[审查媒介限制] DeepSeek 本次只收到由真实 MP4 提取并经校验的抽样图片，"
+            "没有直接观看 MP4。每张图前面标注其时间或联系表文件名。"
+            "图像之间可能存在尚未观察到的运动；对无法充分证实的 continuous_motion"
+            " 必须 result=needs_review，decision=pending。"
+            "请仅返回 JSON 格式的审核结论。"
+        ),
+    }]
+    for item in images:
+        # The filenames are generated from verified evidence manifests, not paths
+        # submitted to the provider or executable model instructions.
+        name = item.name
+        match = re.fullmatch(r"t(\d{8})\.png", name)
+        when = f"{int(match.group(1))/1000:.3f}s" if match else name
+        content.append({"type": "input_text", "text": f"Evidence: {when}"})
+        mime = "image/png" if item.suffix.lower() == ".png" else "image/jpeg"
+        content.append({
+            "type": "input_image",
+            "detail": "high",
+            "image_url": f"data:{mime};base64,"
+                         + base64.b64encode(item.read_bytes()).decode("ascii"),
+        })
+    response = http_post(
+        "https://api.deepseek.com/responses",
+        {"Authorization": f"Bearer {api_key}"},
+        {
+            "model": model,
+            "input": [{"role": "user", "content": content}],
+            "max_output_tokens": 5500,
+            "reasoning": {"effort": "none"},
+            "text": {"format": {"type": "json_object"}},
+            "stream": False,
+        },
+        transport,
+    )
+    if response.get("status") not in (None, "completed"):
+        raise ValueError("DeepSeek R5 response was incomplete or failed")
+    chunks = [
+        segment.get("text", "")
+        for output in response.get("output", [])
+        if output.get("type", "message") == "message"
+        for segment in output.get("content", [])
+        if segment.get("type") == "output_text"
+    ]
+    if not chunks or not "".join(chunks).strip():
+        raise ValueError("No usable DeepSeek vision response")
+    usage = response.get("usage", {})
+    return "".join(chunks), {
+        "input_tokens": usage.get("input_tokens"),
+        "output_tokens": usage.get("output_tokens"),
+        "total_tokens": usage.get("total_tokens"),
+    }
+
+
+ADAPTERS = {"gemini": call_gemini, "openai": call_openai, "deepseek": call_deepseek}
 
 
 def parse_model_report(raw, spec, delivery, provider, model):
@@ -303,7 +373,7 @@ def parse_model_report(raw, spec, delivery, provider, model):
 def run_review(artifact_root, out_dir, provider, model, source_sha,
                artifact_name, run_id, api_key, transport=None):
     if provider not in ADAPTERS:
-        raise ValueError("R5_PROVIDER must be gemini or openai")
+        raise ValueError("R5_PROVIDER must be gemini, openai or deepseek")
     if not api_key:
         raise ValueError(f"{provider.upper()}_API_KEY is missing")
     safe_model(model)
@@ -350,7 +420,8 @@ def main(argv=None):
     parser.add_argument("--provider", choices=tuple(ADAPTERS), required=True)
     parser.add_argument("--model", required=True)
     args = parser.parse_args(argv)
-    key_name = {"gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY"}[args.provider]
+    key_name = {"gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY",
+                "deepseek": "DEEPSEEK_API_KEY"}[args.provider]
     try:
         if not is_r5_enabled(os.environ.get("R5_ENABLED")):
             raise ValueError("R5_ENABLED must be exactly 'true' to invoke paid visual QA")
