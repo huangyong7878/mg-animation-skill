@@ -6,6 +6,8 @@ on:
     types: [completed]
 
 # Privileged workflow_run is safe only with trusted main code and DATA-only artifacts.
+# Explicit opt-in: repository Actions variable R5_ENABLED must equal 'true'.
+# Missing, 'false', and any other value skip the entire job before paid API calls.
 permissions:
   contents: read
   actions: read
@@ -19,7 +21,8 @@ concurrency:
 jobs:
   visual-review:
     if: >-
-      ${{ github.event.workflow_run.conclusion == 'success' &&
+      ${{ vars.R5_ENABLED == 'true' &&
+          github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.event == 'pull_request' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
           (vars.R5_PROVIDER == 'gemini' || vars.R5_PROVIDER == 'openai') }}
