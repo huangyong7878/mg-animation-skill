@@ -7,10 +7,53 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from engine import Box, Renderer, calculate_grid, layout_scene, load, timeline_state
 from validate import validate
 
+# This directory intentionally contains BOTH renderable scenes and cross-model
+# workflow documents. Each must be checked by its own JSON schema, not by the
+# animation-scene schema indiscriminately.
+sys.path.insert(0, str(ROOT / 'workflow'))
+from check_handoff import schema_errors, validate_bundle
+
+HANDOFF_EXAMPLES = {
+    'workflow_orders_spec.json': 'spec',
+    'workflow_orders_delivery.json': 'delivery',
+    'workflow_orders_qa.json': 'qa',
+}
+
+
 class TestMGEngine(unittest.TestCase):
     def test_all_examples_validate(self):
-        for p in (ROOT/'examples').glob('*.json'):
-            with self.subTest(example=p):self.assertEqual(validate(load(p)),[])
+        paths = sorted((ROOT / 'examples').glob('*.json'))
+        self.assertTrue(paths, 'No example JSON files found')
+        names = {p.name for p in paths}
+        self.assertTrue(set(HANDOFF_EXAMPLES).issubset(names),
+                        'Required handoff fixtures were moved or deleted')
+
+        scene_count = 0
+        for path in paths:
+            data = load(path)
+            with self.subTest(example=path.name):
+                if path.name in HANDOFF_EXAMPLES:
+                    self.assertEqual(schema_errors(HANDOFF_EXAMPLES[path.name], data), [])
+                else:
+                    # New/unknown JSON examples are NOT silently skipped.
+                    # They must be valid scenes, or be explicitly registered
+                    # above with the proper independent schema.
+                    scene_count += 1
+                    self.assertEqual(validate(data), [])
+        self.assertGreater(scene_count, 0, 'No renderable example scenes tested')
+
+        # Syntax-valid individual documents can still have mismatched spec
+        # revisions or commits. Check their cross-document linkage as well.
+        spec, delivery, qa = [
+            load(ROOT / 'examples' / filename)
+            for filename in HANDOFF_EXAMPLES
+        ]
+        self.assertEqual(validate_bundle(spec, delivery, qa), [])
+
+    def test_broken_scene_still_fails_scene_validation(self):
+        scene = load(ROOT / 'examples' / 'table_2x3.json')
+        del scene['canvas']
+        self.assertTrue(validate(scene), 'A scene missing canvas must be rejected')
 
     def test_arbitrary_grid_dimensions(self):
         for cols,rows in [(1,1),(2,3),(4,5),(7,2)]:
