@@ -35,6 +35,14 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 演示视频用离线发音器生成的中文语音**很机械**，不代表 Skill 的最终配音质量。正式作品请优先测试 Edge TTS 或替换专业语音后端；切换后应重新提取音频时间戳。
 
+## 自动化第一阶段：GitHub Actions 直接渲染 Pilot 001
+
+现在有一条**真实渲染**而不是单纯跑单元测试的流程：[Pilot 001 自动渲染与制品交接说明](docs/PILOT_CI_AUTOMATION.md)。
+
+当 Pilot 001 的场景/动画原语在 PR 中变更时，Actions 自动生成无声 H.264 MP4、关键帧、QA 联系表、带 SHA256 的媒体清单，以及给独立强模型使用的 `qa_review.zip`，并作为保留 30 天的 Artifact 上传。它也支持 Actions 页面的 `workflow_dispatch` 手动触发。
+
+**尚未自动调用 Muse 或多模态审片模型**，未完成的人工 QA 决策始终为 pending；不自动审批或发布。
+
 ## 所有 AI 模型的统一入口：AGENTS.md
 
 无论由 ChatGPT、Claude、Gemini、Muse、DeepSeek 或 Codex 接手，请先阅读 **[AGENTS.md](AGENTS.md)**，选择 R0–R7 对应角色，再跳转至 [完整多模型操作手册](docs/MULTI_MODEL_PLAYBOOK.md)。该文件不是模型厂商专属指令；无法自动读取 AGENTS.md 的平台，需要明确发送“先读 AGENTS.md”或提供文件附件。

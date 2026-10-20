@@ -1,0 +1,91 @@
+name: Pilot 001 Render and QA Artifact
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/primitives/orderflow.py'
+      - 'scripts/primitives/__init__.py'
+      - 'work/orders_pilot/scene.json'
+      - 'examples/workflow_orders_spec.json'
+      - 'workflow/build_pilot_artifact.py'
+      - 'workflow/qa_evidence.py'
+      - 'workflow/media_manifest.py'
+      - 'workflow/role_pack.py'
+      - '.github/workflows/pilot-render-artifacts.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/primitives/orderflow.py'
+      - 'scripts/primitives/__init__.py'
+      - 'work/orders_pilot/scene.json'
+      - 'examples/workflow_orders_spec.json'
+      - 'workflow/build_pilot_artifact.py'
+      - '.github/workflows/pilot-render-artifacts.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pilot-render-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render-pilot:
+    # No secrets or privileged write permissions: this may run untrusted PR code.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source commit (not the PR merge commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install rendering dependencies and Chinese fonts
+        run: |
+          python -m pip install 'Pillow>=10,<13' 'numpy>=1.24,<3' 'jsonschema>=4.18,<5'
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+      - name: Build actual video and review ZIP from current source
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          ARTIFACT_NAME="mg-orders_two_routes-r1-ci-${GITHUB_RUN_ID}-${SOURCE_SHA:0:12}"
+          ARTIFACT_DIR="${RUNNER_TEMP}/pilot001-build"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          python workflow/build_pilot_artifact.py \
+            --spec examples/workflow_orders_spec.json \
+            --scene work/orders_pilot/scene.json \
+            --source-sha "${SOURCE_SHA}" \
+            --artifact-root "${ARTIFACT_DIR}" \
+            --artifact-name "${ARTIFACT_NAME}" \
+            --run-url "${RUN_URL}"
+          python workflow/media_manifest.py verify \
+            --manifest "${ARTIFACT_DIR}/media_manifest.json" \
+            --artifact-root "${ARTIFACT_DIR}" \
+            --spec "${ARTIFACT_DIR}/director_spec.json" \
+            --delivery "${ARTIFACT_DIR}/delivery.json"
+          echo "artifact_name=${ARTIFACT_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "source_sha=${SOURCE_SHA}" >> "${GITHUB_OUTPUT}"
+      - name: Upload source-bound MP4, QA package, keyframes and manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.artifact_name }}
+          path: ${{ runner.temp }}/pilot001-build/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish build reference in GitHub job summary (no PR writes)
+        if: success()
+        run: |
+          echo "### Pilot 001: actual MP4 built" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- **Source commit:** \`${{ steps.build.outputs.source_sha }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- **Artifact:** \`${{ steps.build.outputs.artifact_name }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- **Stage:** B silent draft, pending independent video QA" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- **Download:** Actions run page → Artifacts (or gh run download)" >> "${GITHUB_STEP_SUMMARY}"
