@@ -15,6 +15,7 @@ from workflow.r5_review import (
     verify_inputs, run_review, safe_model, is_r5_enabled, main as r5_main,
 )
 from workflow.r5_pr_feedback import safe_event, publish, comment_body, preflight
+from workflow.r5_dispatch_event import resolve_run, EXPECTED_NAME, EXPECTED_PATH
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "huangyong7878/mg-animation-skill"
@@ -77,7 +78,9 @@ class TestR5KillSwitch(unittest.TestCase):
         yaml = (ROOT / ".github/workflows/r5-visual-qa.yml").read_text()
         self.assertIn("vars.R5_ENABLED == 'true' &&", yaml)
         self.assertIn("R5_ENABLED: ${{ vars.R5_ENABLED }}", yaml)
-        self.assertIn("github.event.workflow_run.event == 'pull_request'", yaml)
+        self.assertIn("workflow_dispatch:", yaml)
+        self.assertIn("render_run_id:", yaml)
+        self.assertNotIn("workflow_run:", yaml)
 
 
 class TestR5ModelAdapters(unittest.TestCase):
@@ -394,13 +397,113 @@ class TestR5PRComments(unittest.TestCase):
 
     def test_workflow_never_checks_out_source_pr_or_merges(self):
         yaml = (ROOT / ".github/workflows/r5-visual-qa.yml").read_text()
-        self.assertIn("workflow_run:", yaml)
+        self.assertIn("workflow_dispatch:", yaml)
+        self.assertNotIn("workflow_run:", yaml)
+        self.assertIn("workflow/r5_dispatch_event.py", yaml)
         self.assertIn("ref: main", yaml)
         self.assertIn("persist-credentials: false", yaml)
         self.assertIn("actions/download-artifact@v4", yaml)
         self.assertIn("issues: write", yaml)
         self.assertNotIn("pull_request_target:", yaml)
         self.assertNotIn("merge", yaml.replace("# Never ", ""))
+
+
+class TestR5ManualAuthorization(unittest.TestCase):
+    def setUp(self):
+        self.lookups = []
+        self.run = {
+            "id": RUN, "name": EXPECTED_NAME,
+            "path": EXPECTED_PATH + "@refs/pull/7/merge",
+            "event": "pull_request", "status": "completed",
+            "conclusion": "success",
+            "repository": {"full_name": REPO},
+            "head_repository": {"full_name": REPO},
+            "head_sha": SHA,
+        }
+
+    def fake_api(self, method, endpoint, payload):
+        self.lookups.append(endpoint)
+        if endpoint.endswith(f"/actions/runs/{RUN}"):
+            return self.run
+        if endpoint.endswith("/commits/" + SHA + "/pulls?per_page=100"):
+            return [{
+                "number": 7, "state": "open",
+                "head": {"sha": SHA, "repo": {"full_name": REPO}},
+                "base": {"repo": {"full_name": REPO}},
+            }]
+        if endpoint.endswith("/pulls/7"):
+            return {"state": "open", "head": {"sha": SHA}}
+        if endpoint.endswith("/issues/7/comments?per_page=100"):
+            return []
+        raise AssertionError(endpoint)
+
+    def test_selected_real_same_repo_pr_render_can_be_reviewed(self):
+        selected = resolve_run(REPO, str(RUN), "token", transport=self.fake_api)
+        self.assertEqual(selected["pr"], 7)
+        self.assertEqual(selected["sha"], SHA)
+        self.assertEqual(selected["run_id"], RUN)
+        self.assertEqual(selected["artifact_name"],
+                         f"mg-orders_two_routes-r1-ci-{RUN}-{SHA[:12]}")
+        self.assertEqual(safe_event(selected["event"], REPO), (SHA, RUN))
+        self.assertTrue(preflight(selected["event"], REPO,
+                                  "token", self.fake_api)["should_run"])
+        self.assertTrue(any("/actions/runs/" in x for x in self.lookups))
+
+    def test_reject_invalid_render_run_id_without_network_call(self):
+        for value in ("", "-1", "0", "1;echo BAD", " 12", "00012",
+                      "9" * 30, "https://github.com/"):
+            with self.subTest(value=value):
+                self.lookups.clear()
+                with self.assertRaisesRegex(ValueError, "run ID"):
+                    resolve_run(REPO, value, "token", self.fake_api)
+                self.assertEqual(self.lookups, [])
+
+    def test_reject_false_success_fork_or_wrong_workflow(self):
+        for field, new in (
+                ("conclusion", "failure"), ("event", "push"),
+                ("status", "queued"), ("name", "Other Workflow"),
+                ("path", ".github/workflows/fake.yml@refs/heads/main"),
+                ("head_repository", {"full_name": "external/fork"}),
+                ("repository", {"full_name": "external/other"}),
+                ("head_sha", "bad")):
+            with self.subTest(field=field):
+                original = self.run[field]
+                self.run[field] = new
+                try:
+                    with self.assertRaises(ValueError):
+                        resolve_run(REPO, str(RUN), "token", self.fake_api)
+                finally:
+                    self.run[field] = original
+
+    def test_reject_stale_pr_head_and_duplicate_marker(self):
+        selected = resolve_run(REPO, str(RUN), "token", self.fake_api)
+        def old_pr(method, endpoint, payload):
+            if endpoint.endswith("/pulls/7"):
+                return {"state": "open", "head": {"sha": "b" * 40}}
+            return self.fake_api(method, endpoint, payload)
+        with self.assertRaisesRegex(ValueError, "HEAD changed"):
+            resolve_run(REPO, str(RUN), "token", old_pr)
+
+        def old_review(method, endpoint, payload):
+            if endpoint.endswith("comments?per_page=100"):
+                return [{"body": "<!-- mg-r5 run:" + str(RUN)
+                         + " sha:" + SHA + " -->"}]
+            return self.fake_api(method, endpoint, payload)
+        self.assertFalse(preflight(selected["event"], REPO, "token",
+                                   old_review)["should_run"])
+
+    def test_dispatch_does_not_auto_bill_on_push_or_workflow_run(self):
+        workflow = (ROOT / ".github/workflows/r5-visual-qa.yml").read_text()
+        self.assertIn("on:\n  workflow_dispatch:", workflow)
+        self.assertIn("vars.R5_ENABLED == 'true'", workflow)
+        self.assertIn("inputs.render_run_id", workflow)
+        self.assertNotIn("\n  workflow_run:", workflow)
+        self.assertNotIn("\n  pull_request:", workflow)
+        self.assertNotIn("\n  push:", workflow)
+        self.assertIn("ref: main", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("actions/download-artifact@v4", workflow)
+        self.assertIn("cancel-in-progress: false", workflow)
 
 
 if __name__ == "__main__":
