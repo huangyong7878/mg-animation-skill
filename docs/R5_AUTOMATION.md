@@ -26,10 +26,23 @@ Muse/DeepSeek 开发 PR (不可信代码)
 
 打开仓库 → Settings → Secrets and variables → Actions。
 
+### R5 总开关（默认关闭）
+
+在 GitHub 仓库的 **Settings → Secrets and variables → Actions → Variables** 中创建 **`R5_ENABLED`**，它是唯一的自动审片总开关：
+
+- **`false`（默认推荐）**：完全不运行 R5 审片 Job，**不会调用收费 API，也不会发布 R5 评论**；PR #12 的自动渲染与视频 Artifact 仍然正常。
+- **`true`**：允许 R5 自动审核，但仍需有效的 `R5_PROVIDER`、`R5_MODEL` 和相应 API Secret，以及渲染 Workflow 成功。
+- **未设置或任何其他值（包括 `TRUE`、`1`）**：视为关闭，避免意外计费。
+
+**切换方法**：打开仓库 → Settings → Secrets and variables → Actions → Variables → `R5_ENABLED` → 编辑 Value → `true` 或 `false` → Save。
+
+这是针对**新触发**审核的开关；已经进入运行状态的付费请求不会被变量切换追溯取消。需要立即停止当前运行，请在 **Actions → R5 Independent Visual QA** 手动取消对应 Run，或临时 Disable workflow。
+
 在 **Variables**（不是 Secrets）添加：
 
 | 名称 | 取值 | 用途 |
 |---|---|---|
+| `R5_ENABLED` | `false` / `true`（默认关闭） | R5 的显式总开关，只有 `true` 才可能调用付费模型 |
 | \`R5_PROVIDER\` | \`gemini\` 或 \`openai\` | 选择适配器，之后可换 |
 | \`R5_MODEL\` | 对应账号可访问的模型 ID，比如 \`gemini-2.5-flash\` 或 \`gpt-4.1\` | 明确选择计费模型，不在代码中暗中升级 |
 
@@ -41,6 +54,8 @@ Muse/DeepSeek 开发 PR (不可信代码)
 | \`OPENAI_API_KEY\` | OpenAI Responses API 认证；OpenAI 收到视频连续抽帧/时间联系表 |
 
 只需提供实际选择的服务商 Secret，**不要把密钥贴入 Issue、PR、代码、聊天记录或 Artifact**。为了比较两种模型，可之后切换 \`R5_PROVIDER\` 和 \`R5_MODEL\`；同一轮触发只调用一个配置的模型。
+
+**即便已配置 API Key，只要 `R5_ENABLED=false` 或未设置，就绝不会由此工作流启动新的付费 R5 请求。**
 
 若未配置 \`R5_PROVIDER\` 或值无效，Workflow 的 QA 作业会**跳过**；若提供商有效但模型名/Secret 缺失，会**失败并阻断评论**，不会伪造 pass。
 
