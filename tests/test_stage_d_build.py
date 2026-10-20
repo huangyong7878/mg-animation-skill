@@ -89,7 +89,7 @@ class StageDTests(unittest.TestCase):
                                  "approved_by": "UNIT_TEST_ONLY_FAKE_APPROVER",
                                  "approved_at": "2026-10-20T00:00:00Z"}
         self.spec["narration"]["status"] = "draft"
-        with self.assertRaisesRegex(ValueError, "draft|locked"):
+        with self.assertRaisesRegex(ValueError, "lock"):
             self.check()
 
     def test_draft_cue_or_test_only_plan_cannot_be_staged(self):
