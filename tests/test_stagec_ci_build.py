@@ -108,7 +108,7 @@ class StageCSmokeTest(unittest.TestCase):
         spec = json.loads(json.dumps(SPEC))
         self.assertNotEqual(spec["approval"]["status"], "approved")
         errs = validate_bundle(spec, release=True, artifact_root=ROOT)
-        self.assertTrue(any("not approved" in err for err in errs))
+        self.assertTrue(any("delivery and QA report are both required" in err for err in errs))
 
     def test_r5_remains_bound_to_stage_b_and_opt_in(self):
         r5 = (ROOT / "workflow/r5_review.py").read_text()
