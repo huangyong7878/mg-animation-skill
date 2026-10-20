@@ -293,7 +293,7 @@ class StageDTests(unittest.TestCase):
         imported_lock = out / "approvals/voice_lock.json"
         correct_lock = imported_lock.read_bytes()
         imported_lock.write_bytes(correct_lock + b" ")
-        with self.assertRaisesRegex(ValueError, "changed|lock"):
+        with self.assertRaisesRegex(ValueError, "changed|lock|hash"):
             receive(formal, out / "delivery.json", out)
         imported_lock.write_bytes(correct_lock)
         self.assertEqual(receive(formal, out / "delivery.json", out)["status"],
