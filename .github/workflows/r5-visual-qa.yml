@@ -1,35 +1,38 @@
 name: R5 Independent Visual QA
 
+# Billing safety: NEVER trigger paid model calls automatically on PR pushes.
+# An operator explicitly selects ONE successful, immutable Pilot PR render run.
 on:
-  workflow_run:
-    workflows: ["Pilot 001 Render and QA Artifact"]
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      render_run_id:
+        description: "Successful Pilot 001 PR render run ID to review exactly once"
+        required: true
+        type: string
 
-# Privileged workflow_run is safe only with trusted main code and DATA-only artifacts.
-# Explicit opt-in: repository Actions variable R5_ENABLED must equal 'true'.
-# Missing, 'false', and any other value skip the entire job before paid API calls.
+# The dispatcher always executes code on trusted main, not PR code.
 permissions:
   contents: read
   actions: read
   pull-requests: read
   issues: write
 
+# Concurrent requests for the same source run are serialized. A successful
+# first review will publish an SHA/run marker, so later repeats skip API billing.
 concurrency:
-  group: r5-${{ github.event.workflow_run.id }}
+  group: r5-manual-${{ inputs.render_run_id }}
   cancel-in-progress: false
 
 jobs:
   visual-review:
+    # R5_ENABLED=true is a necessary gate but NEVER sufficient to trigger work.
+    # Operator must also click Run workflow and supply a run ID.
     if: >-
       ${{ vars.R5_ENABLED == 'true' &&
-          github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.event == 'pull_request' &&
-          github.event.workflow_run.head_repository.full_name == github.repository &&
           (vars.R5_PROVIDER == 'gemini' || vars.R5_PROVIDER == 'openai' || vars.R5_PROVIDER == 'deepseek') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # Never checkout github.event.workflow_run.head_sha, PR head or uploaded code.
       - name: Checkout trusted main ONLY
         uses: actions/checkout@v4
         with:
@@ -41,33 +44,34 @@ jobs:
           python-version: '3.11'
       - name: Install trusted review dependencies
         run: python -m pip install 'jsonschema>=4.18,<5' 'Pillow>=10,<13'
-      - name: Preflight PR SHA and duplicate feedback before model billing
+      - name: Resolve selected run through authenticated GitHub API
+        id: source
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SELECTED_RUN: ${{ inputs.render_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python workflow/r5_dispatch_event.py \
+            --render-run-id "$SELECTED_RUN" \
+            --out "$RUNNER_TEMP/r5_source_event.json"
+      - name: Preflight PR SHA and completed review before billing
         id: gate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python workflow/r5_pr_feedback.py --event "$GITHUB_EVENT_PATH" --preflight
-      - name: Bind immutable source SHA and artifact name
-        id: source
-        env:
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_RUN: ${{ github.event.workflow_run.id }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
-          [[ "$SOURCE_RUN" =~ ^[1-9][0-9]*$ ]] || exit 1
-          echo "artifact_name=mg-orders_two_routes-r1-ci-${SOURCE_RUN}-${SOURCE_SHA:0:12}" >> "$GITHUB_OUTPUT"
-      - name: Download video, spec and manifest from exact render run
+        run: python workflow/r5_pr_feedback.py --event "$RUNNER_TEMP/r5_source_event.json" --preflight
+      - name: Download signed-to-run video, spec and evidence
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ steps.source.outputs.artifact_name }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ steps.source.outputs.source_run }}
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/r5_input
-      - name: Call configured visual model once, validate QA report
+      - name: Call configured visual model once and validate QA
         if: steps.gate.outputs.should_run == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -76,14 +80,14 @@ jobs:
           R5_ENABLED: ${{ vars.R5_ENABLED }}
           R5_PROVIDER: ${{ vars.R5_PROVIDER }}
           R5_MODEL: ${{ vars.R5_MODEL }}
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_RUN: ${{ github.event.workflow_run.id }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          SOURCE_RUN: ${{ steps.source.outputs.source_run }}
           ARTIFACT_NAME: ${{ steps.source.outputs.artifact_name }}
         shell: bash
         run: |
           set -euo pipefail
           if [[ -z "$R5_MODEL" ]]; then
-            echo "::error::Configure repository Actions variable R5_MODEL explicitly."
+            echo "::error::Configure repository Actions variable R5_MODEL."
             exit 1
           fi
           python workflow/r5_review.py \
@@ -97,21 +101,21 @@ jobs:
             --spec "$RUNNER_TEMP/r5_input/director_spec.json" \
             --delivery "$RUNNER_TEMP/r5_input/delivery.json" \
             --qa "$RUNNER_TEMP/r5_output/qa_report.json"
-      - name: Store model QA and usage (30 days)
+      - name: Archive QA report and token usage (30 days)
         if: always() && steps.gate.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: r5-review-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.head_sha }}
+          name: r5-review-${{ steps.source.outputs.source_run }}-${{ steps.source.outputs.source_sha }}
           path: ${{ runner.temp }}/r5_output/
           if-no-files-found: warn
           retention-days: 30
-      - name: Publish validated QA feedback to correct, still-open PR
+      - name: Publish validated QA feedback to matching open PR
         if: steps.gate.outputs.should_run == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python workflow/r5_pr_feedback.py \
-            --event "$GITHUB_EVENT_PATH" \
+            --event "$RUNNER_TEMP/r5_source_event.json" \
             --report "$RUNNER_TEMP/r5_output/qa_report.json" \
             --audit "$RUNNER_TEMP/r5_output/r5_audit.json"

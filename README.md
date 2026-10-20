@@ -43,13 +43,11 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 **尚未自动调用 Muse 或多模态审片模型**，未完成的人工 QA 决策始终为 pending；不自动审批或发布。
 
-## R5 自动独立视觉 QA（可切换模型）
+## R5 手动独立视觉 QA（可切换模型，防止重复计费）
 
-已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini`、`openai` 或 `deepseek`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
+[查看 R5 模型审核配置与安全说明](docs/R5_AUTOMATION.md)。**R5 已改为只有人工点选 GitHub Actions → R5 Independent Visual QA → Run workflow，并明确输入某个已成功的 Pilot PR 渲染 Run ID 才会调用 Gemini/OpenAI/DeepSeek。** `R5_ENABLED=true` 只是允许审核，不会因为 PR push 或 Stage C 自动构建而启动付费请求；关闭时也无法手动发出模型调用。R5 前置检查校验真实 GitHub Run、同仓库开放 PR 的最新 SHA、媒体制品和已有审核评论；每轮最多一次模型 API 请求，无自动重试。不自动合并、不批准正式发布。
 
-DeepSeek 视觉审查请使用 `R5_MODEL=deepseek-flash`，图片输入通过 Responses API；不直接传 MP4，连续运动证据不足时报告应为 `pending`。
-
-模型密钥必须在 GitHub Actions Secrets 配置，绝不能写入仓库。真实渲染 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12) 已合并；自动审片需合并本 R5 PR，并配置服务商与 `R5_ENABLED=true` 后才能启用。详情见上述文档。
+Gemini 原生审核 Stage B 无声 MP4；OpenAI 和 DeepSeek 共用抽帧版 OpenAI Responses 客户端。Stage C 测试音频未因此完成独立视听 QA，正式音频与 Stage D 仍需单独审批。
 
 ## 所有 AI 模型的统一入口：AGENTS.md
 

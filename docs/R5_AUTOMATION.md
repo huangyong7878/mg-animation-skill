@@ -1,140 +1,67 @@
-# R5 自动视觉审核：可切换的模型适配器、可信 CI 和 PR 反馈
+# R5 Independent Visual QA — 手动、按渲染 Run 计费（默认安全）
 
-**状态：等待该 PR 合并、配置 GitHub Variables/Secrets 并进行真实 API 验证。**
+**当前设计目标：把 R5_ENABLED 从“自动审片总开关”改成“付费审片许可开关”。**
+只修改此变量不触发任何 R5 模型调用。人工在 Actions 中明确选择**一条已经成功的 Pilot 001 PR 渲染 Run**并点击运行，才有机会消费 Gemini/OpenAI/DeepSeek Token。
 
-本实现不涉及任何写在代码中的 API Key；不设置固定 USD 费用上限。**不会自动合并 PR、批准分镜、修改 main、发布视频或代替人类发布审核。**
+> 此功能须在代码 PR 合并到默认分支 main 后才能使用。该 PR 的 CI 模拟 Gemini 等接口，不代表已经发生真实付费审片。
 
-## 1. 一图看懂信任边界
+## 1. 为什么改变触发机制？
 
-~~~text
-Muse/DeepSeek 开发 PR (不可信代码)
-  └─ Pilot 001 Render and QA Artifact (pull_request, 无 Secrets, contents: read)
-       └─ 真实无声 MP4 + keyframes + delivery.json + media_manifest.json
-          └─ GitHub Actions Artifact，绑定精确源代码 commit
-             └─ R5 Independent Visual QA (workflow_run, 从 main 检出可信代码)
-                  ├─ 只下载源 run 上传的媒体，校验 SHA、Schema、视频证据
-                  ├─ 调用 R5_PROVIDER 对应 API（只请求一次，无自动重试）
-                  ├─ 检查所有视觉 contract，生成 qa_report.json + r5_audit.json
-                  ├─ 把报告保存为新的 Actions Artifact（30天）
-                  └─ 复核当前 PR HEAD 未改变，只发表一次 Issue Comment
-                       └─ pass / rework / pending / blocked
-~~~
+早期 R5 使用 on.workflow_run：每次 PR 修改触发 Pilot 001 Render 工作流，渲染成功就启动 R5。当 R5_ENABLED=true 时，多次推送或重新渲染可能造成**多笔付费 API 请求**。即使单次审核无自动重试，也不代表整个 PR 不会重复计费。
 
-**关键安全前提：** R5 的 \`workflow_run\` 工作流必须存在于仓库默认分支 \`main\`，并且**只从 main checkout**。PR 内的任何 \`*.py\`、\`qa_review.zip\`、脚本或文本都只当作不可信**数据**，绝不在拥有 API Secrets 的 Runner 上执行。不要改成 \`pull_request_target\`。
+**现在 R5 使用且仅使用 on.workflow_dispatch**：
 
-## 2. 开启自动审核：需要你在 GitHub 做的配置
+- GitHub 自动渲染、Stage C 测试以及普通回归测试可以继续执行，**都不会自动产生 R5 模型调用**。
+- R5_ENABLED=false（或未设置）时：即使有人手动点击运行，也会跳过实际模型调用 Job。
+- R5_ENABLED=true 时：**也绝不会因打开开关或 PR push 而自行启动**；必须由人提交具体的 `render_run_id`。
+- 手动运行针对**当前仍开放、同仓库、SHA 完全匹配且成功完成**的 Pilot 001 PR 渲染 Run。不能任意使用已过期、叉仓库、失败或其他 Workflow 的制品。
+- 同一个渲染 Run 的人工重试会串行执行；如果已在对应 PR 成功发布过 R5 评论，前置检查会跳过重复计费。不过**如果之前请求已计费但后续失败、还没有 PR 评论，重新手动执行仍可能再次产生费用**，因此不能保证严格财务“至多一次”。
 
-打开仓库 → Settings → Secrets and variables → Actions。
+每次用户**明确点击一次 Run workflow**，R5 最多向选中的提供商发起**一个 API 请求**，不自动重试。服务商失败、证据缺失或 QA 契约校验不通过都不会伪造 PASS。调用 Gemini 前会验证媒体、SHA 和完整的证据清单；调用后记录真实 Token usage，`cost_usd=null`（没有不实的美元成本估算）。
 
-### R5 总开关（默认关闭）
+## 2. Repository 变量与 Secrets
 
-在 GitHub 仓库的 **Settings → Secrets and variables → Actions → Variables** 中创建 **`R5_ENABLED`**，它是唯一的自动审片总开关：
+GitHub → **Settings → Secrets and variables → Actions**，选择 **Repository** 级别。
 
-- **`false`（默认推荐）**：完全不运行 R5 审片 Job，**不会调用收费 API，也不会发布 R5 评论**；PR #12 的自动渲染与视频 Artifact 仍然正常。
-- **`true`**：允许 R5 自动审核，但仍需有效的 `R5_PROVIDER`、`R5_MODEL` 和相应 API Secret，以及渲染 Workflow 成功。
-- **未设置或任何其他值（包括 `TRUE`、`1`）**：视为关闭，避免意外计费。
-
-**切换方法**：打开仓库 → Settings → Secrets and variables → Actions → Variables → `R5_ENABLED` → 编辑 Value → `true` 或 `false` → Save。
-
-这是针对**新触发**审核的开关；已经进入运行状态的付费请求不会被变量切换追溯取消。需要立即停止当前运行，请在 **Actions → R5 Independent Visual QA** 手动取消对应 Run，或临时 Disable workflow。
-
-在 **Variables**（不是 Secrets）添加：
-
-| 名称 | 取值 | 用途 |
+| 类型 | 名称 | Gemini 示例 |
 |---|---|---|
-| `R5_ENABLED` | `false` / `true`（默认关闭） | R5 的显式总开关，只有 `true` 才可能调用付费模型 |
-| `R5_PROVIDER` | `gemini`、`openai` 或 `deepseek` | 三选一，审查模型可切换 |
-| `R5_MODEL` | `gemini-2.5-flash`、`gpt-4.1` 或 **`deepseek-flash`** | DeepSeek R5 请使用支持图片的 `deepseek-flash`，非 `deepseek-v4-pro` |
+| Variable | `R5_ENABLED` | `false`（准备好审核后才设 `true`） |
+| Variable | `R5_PROVIDER` | `gemini` |
+| Variable | `R5_MODEL` | 该账号支持视频理解的模型 ID，例如 `gemini-2.5-flash` |
+| Secret | `GEMINI_API_KEY` | 有效 Gemini API 密钥 |
 
-在 **Secrets** 添加与你选择的服务商一致的一项：
+其他支持选项：`R5_PROVIDER=openai` + `OPENAI_API_KEY`；或 `R5_PROVIDER=deepseek`、`R5_MODEL=deepseek-flash` + `DEEPSEEK_API_KEY`。只存实际所需的密钥，绝不提交代码或粘贴 PR。
 
-| 名称 | 用途 |
-|---|---|
-| \`GEMINI_API_KEY\` | Gemini API 认证；Gemini 能收到原生 MP4 + 重点帧 |
-| `OPENAI_API_KEY` | OpenAI Responses API 认证；OpenAI 收到视频连续抽帧/时间联系表 |
-| `DEEPSEEK_API_KEY` | DeepSeek Responses API 认证；DeepSeek Flash 收到带时间戳的抽样帧与联系表 |
+Gemini 用原生 MP4 + 时间重点帧审核。OpenAI/DeepSeek 共享一个 OpenAI Responses 兼容客户端，只接收已校验的抽样帧与联系表，不能凭有限帧保证所有连续运动无误，应在证据不足时给出 pending。
 
-只需提供实际选择的服务商 Secret，**不要把密钥贴入 Issue、PR、代码、聊天记录或 Artifact**。为了比较两种模型，可之后切换 \`R5_PROVIDER\` 和 \`R5_MODEL\`；同一轮触发只调用一个配置的模型。
+## 3. 如何只对一条 Run 发起一次 Gemini 审片？
 
-**即便已配置 API Key，只要 `R5_ENABLED=false` 或未设置，就绝不会由此工作流启动新的付费 R5 请求。**
+1. 先从原来的 **Pilot 001 Render and QA Artifact** 工作流运行记录中找到一次 **Success、事件为 pull_request** 的 Run，它应该来自待审核的、**仍为 Open 的同仓库 PR 最新源码 SHA**。
+2. 打开该 Render Run 页面（例如 `https://github.com/huangyong7878/mg-animation-skill/actions/runs/39386781120`），复制地址末尾的数字，如 `39386781120`。它指向固定的一次真实视频构建，而不是“最新一次”制品。
+3. 将 Repository variable `R5_ENABLED=true`；确认 `R5_PROVIDER=gemini`、`R5_MODEL` 和 Secret `GEMINI_API_KEY` 有效。
+4. 打开 [Actions → R5 Independent Visual QA](https://github.com/huangyong7878/mg-animation-skill/actions/workflows/r5-visual-qa.yml)，选择 **Run workflow**，branch 选择 **main**，在 `render_run_id` 填上刚才的数字，手动运行**一次**。
+5. 打开这次 R5 Actions Run：检查真实 API 步骤的结果和 Artifact 的 `qa_report.json`、`r5_audit.json`，并在对应 PR 的 Conversation 检查评论。R5 报告的 PASS 仅指 Stage B **视觉**原型；Stage C 机械配音检查和正式 Stage D 音画审核与人工发布仍然独立。
+6. 如不计划继续审核，把 `R5_ENABLED=false`。新开关配置不会取消已经发出的付费 API 请求；需要取消在跑的任务时去 Actions 手工 Cancel。
 
-若未配置 \`R5_PROVIDER\` 或值无效，Workflow 的 QA 作业会**跳过**；若提供商有效但模型名/Secret 缺失，会**失败并阻断评论**，不会伪造 pass。
+**不需要为了触发 Gemini 再向 PR 反复推送空提交。** `workflow_dispatch` 会针对已经生成、经过校验的固定源 Run 工作。
 
-> 依赖关系：首先合并 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12)（自动渲染），再合并包含 R5 的 PR。因为 GitHub 要求 \`workflow_run\` 文件在默认分支才会自动触发，**本分支自身的绿色单元测试不等于已经发生了真实付费审片**。
+### 关键区别
 
-### DeepSeek R5 具体设置（使用 Repository 级别）
+- **R5 Model Adapters and PR Feedback Tests**：自动运行的**模拟单元测试**，不会联系 Gemini。
+- **R5 Independent Visual QA**：**仅手动触发**的真实 R5 模型审核，满足各门禁后才计费。
+- **Pilot 001 Render and QA Artifact**：自动渲染真实 Stage B 视频，**不调用 Gemini**。
+- **Stage C Pilot Narration and AV Draft**：独立制作离线 TTS、SRT、AV 样片，**不调用 Gemini**。
 
-仓库 **Settings → Secrets and variables → Actions → Variables**：
+普通 CI 工作流的数量仍由各自的触发条件决定；此次修改阻断的是**因自动渲染连锁触发的 R5 付费调用**，而不是将所有无密钥测试工作流合并为一条。
 
-- `R5_ENABLED = false`（配置完成、准备试运行后才改为 `true`）
-- `R5_PROVIDER = deepseek`
-- `R5_MODEL = deepseek-flash`
+## 4. 信任边界、成本与发布限制
 
-仓库 **Settings → Secrets and variables → Actions → Secrets**：
+- 审核从 main 的**可信代码**执行，永不 checkout 待审核 PR 的 Python；GitHub Artifact 视为**不可信数据**，校验文件大小、路径、证据、SHA256、源 commit 等。
+- `workflow/r5_dispatch_event.py` 通过 GitHub 认证 API 检索指定 Render Run，检查其工作流名称和路径、来源仓库、完成状态、事件类型和最新 PR SHA；不信任用户输入的 repo/SHA。
+- 在调用模型之前，再由 `workflow/r5_pr_feedback.py` 验证真实开放 PR、HEAD SHA、以及是否已有同一渲染 Run 的审核评论。
+- 每轮最多**一笔**模型 API 请求，没有自动重试；不能保证 Gemini 认为的 PASS 完全正确，不会自动审批 PR、合并 main、批准旁白或发布成片。
+- Gemini 内联 MP4 上限 16 MiB，整个请求体约 21 MiB；音视频较长时须先重新设计审核证据而不是放开无限制费用。
+- Token usage 只按模型真实反馈记载；请同时在 Gemini 服务商后台设置预算/告警。
+- 已有 R5 付费请求即使没有成功返回 QA 报告，也可能产生费用。**不要误把“没有评论”当成“没有计费”。**
 
-- `DEEPSEEK_API_KEY = <你的有效 DeepSeek API Key>`，绝不能写进仓库或粘贴到 PR。
-
-官方参考：[DeepSeek 图像理解](https://api-docs.deepseek.com/zh-cn/guides/vision/)、[Responses API](https://api-docs.deepseek.com/zh-cn/guides/responses_api/)、[定价](https://api-docs.deepseek.com/quick_start/pricing/)。**不支持把纯文本模型配置成视觉 R5；DeepSeek 官方目前只列出 Flash 支持图像，V4 Pro 不支持。**
-
-若 R4 实现者也采用 DeepSeek，R5 仍需与执行上下文隔离，并且最好抽样交叉使用其他提供商或人工复审，避免同模型对自身模式的盲区。
-
-## 3. 将会发生什么？
-
-当 Pilot 001 源码在 PR 发生变化时，先触发原来的无密钥渲染工作流。成功生成 Artifact 后，只要已按上面配置好 Variable/Secret：
-
-1. GitHub 自动启动 \`R5 Independent Visual QA\`，下载**此 Run**的 Artifact（不是“最新成功文件”）。
-2. 首先检查 \`delivery.implementation_commit\`、\`spec_sha256\`、\`media_manifest.json\`、\`qa_evidence\` 的字节校验；不匹配则**不给模型发费率 API 请求**。
-3. Gemini 适配器将实际 MP4 以内联方式交给 API，并附加高密度节点时间窗的图片；OpenAI 适配器将抽样帧及联系表交给 Responses API，并明示没有原生视频访问的限制。
-4. 模型必须逐条返回 \`must_show\` / \`continuous_motion\`，附时间戳证据。
-5. 本地运行 \`validate_bundle\` 以及 \`workflow/check_handoff.py\`，不允许缺要求、错 SHA、未检查就 pass 或严重 P0/P1 下 pass。
-6. 产出 \`qa_report.json\` 和 \`r5_audit.json\`（包含模型名称、如服务商返回则含 Token 使用量和视频 SHA256）。
-7. 如原 PR 仍然 open、同仓库、HEAD SHA 未变化，自动发表 PR 评论。PR 更新后旧 QA **不发送到新版本**。
-8. 即使模型结论是 PASS，也只表示**Stage B 无声原型**的模型视觉质量审核通过；不能算有声成片发布批准。
-
-GitHub Action 通过 \`workflow_run\` 配合 \`issues: write\` 完成评论，不需要另配个人访问令牌。只发表评论，不给 PR Approval、Label 或 Merge。重复运行同一个 Render Run 会检查评论 Marker，尽量避免重复评论。
-
-## 4. 费率与资源限制
-
-你选择了“**暂不设置固定美元费用上限**”，因此不会做虚假的预算保证；\`r5_audit.json\` 只记录服务商真实返回的 Token 使用量，USD 为 \`null\`，需要结合提供商当时价格结算。
-
-但是为了控制误触发和滥用，仍内建非金钱型资源保护：
-
-- **每轮最多一次付费 API 调用**，无自动重试；HTTP 出错则失败且不宣告通过。
-- Gemini **inline MP4 ≤16 MiB**，整体请求体限制约 21 MiB；媒体清单总计 ≤65 MiB，超过则直接阻断，不能切换到不受控的上传接口。
-- OpenAI 模式最多发送 3 张联系表与 16 张按优先级选择的时间帧；视觉得分不清的连续运动必须 \`needs_review\` / \`pending\`。
-- 每个 PR push 可能引发一轮独立审片并计费，用户可以禁用该 Workflow 或删除 \`R5_PROVIDER\` 暂停。不同模型单价和图像/视频 Token 可能差异很大，请在服务商后台另行设置使用额度提醒/预算。
-
-**该上限仅针对本阶段 Pilot；后续更长视频需先明确媒体分片和审片设计，而不是提高上限就放开无限账单。**
-
-## 5. 模型替换与范围限制
-
-模型适配器位于 \`workflow/r5_review.py\`。**OpenAI 与 DeepSeek 共享同一个 OpenAI Responses 协议实现**：共同使用 \`call_openai_compatible()\`、\`timed_image_content()\` 和 \`parse_responses_output()\`；\`call_openai()\` / \`call_deepseek()\` 只是薄包装。差异全部集中在 \`OPENAI_COMPATIBLE_PROVIDERS\` 配置中（Endpoint、输出 Token 上限、支持图片的模型白名单、服务商附加参数）。Gemini 使用原生视频的不同协议，因此仍独立实现。
-
-- \`gemini\`：Gemini \`generateContent\` REST，原生视频 + 时间证据，输出 JSON。
-- `openai`：OpenAI `responses` REST，图像时间证据，输出 JSON。
-- `deepseek`：DeepSeek `https://api.deepseek.com/responses` REST，**`deepseek-flash` 支持的图像输入**与时间证据、JSON 输出。此接口不原生上传 MP4，因此不保证能从有限图片判断全部连续运动；证据不足时 R5 必须给出 `pending`，不得冒称已经完整观看视频。
-- 新增 OpenAI Responses 兼容服务商时，优先往 \`OPENAI_COMPATIBLE_PROVIDERS\` 增加配置，而不是复制编码、传输和解析实现；再用薄包装注册 \`ADAPTERS\` 和对应 Secret。真正不兼容的协议才单独实现；所有提供商均不可绕过 \`parse_model_report\`/PR SHA 门禁。
-
-**音轨不受影响。** 当前只审 Stage B 无声原型；Stage C/D 将继续使用原有 TTS、音画同步、字幕机制；为有声版本写 R5 接口需进一步扩展同步契约和可验证视听证据。
-
-目前在 GitHub CI 的模型接口测试使用**模拟 HTTP 响应**，因此不会产生付费 API 调用。GitHub R5 工作流首次实际运行后，才可以确认真实 API/模型输出兼容性。模型处理媒体、视觉质量判断和时间戳准确性均需要继续抽样复核，不能把“JSON 可校验”当成“真实人类已审”。
-
-## 6. 触发后到哪里查看
-
-- **Actions → Pilot 001 Render and QA Artifact**：源代码对应的真实视频/媒体 Artifact。
-- **Actions → R5 Independent Visual QA**：模型调用过程、校验结果、\`r5-review-<run_id>-<sha>\` 审查报告 Artifact（保留 30 天）。
-- **原 PR → Conversation**：机器人自动评论，给出 PASS、REWORK、PENDING 或 BLOCKED、发现摘要、时间点和修复要求。
-
-如果没有模型密钥、有无效模型名、缺少 Artifact、视频超限或 PR 已更新，则自动审核不会发布虚假的 PASS。完整错误原因可在 Actions 查看。
-
-## 7. 权限、审核和边界检查
-
-- 渲染 Workflow：保持 \`contents: read\`，**绝不传入模型 Key**。
-- R5 Workflow：\`contents: read\`、\`actions: read\`、\`pull-requests: read\`、\`issues: write\`；只从 \`main\` 运行可信代码。
-- R5 API Key 只通过环境变量传给可信脚本，不加入任何模型提示词、日志或生成文件；HTTP 出错不输出返回体以免泄漏。
-- 所有外部媒体都视为可能携带对抗提示/恶意内容的数据，不赋予模型 GitHub 操作工具权限。
-- 不检出 PR 的 Python、不开启自动合并，不触及 \`main\` 代码修改。
-- 不跨 SHA 复用 QA：更新源码后必须重新生成视频和证据，再审片。
-- 需要真正发布时仍按既有 \`workflow/check_handoff.py --release\` 执行人工批准、正式音频和 Stage D 门禁。
-
-仓库已有 [多模型操作手册](MULTI_MODEL_PLAYBOOK.md)、[R5 角色](../roles/REVIEWER.md)、[媒体存储 ADR](adr/0001-media-artifact-policy.md)。本页仅解释新增的**真实 API 驱动**自动化。
+源代码：`workflow/r5_dispatch_event.py`、`workflow/r5_pr_feedback.py`、`workflow/r5_review.py`。本工作流只负责 Stage B 草稿的独立模型视觉检查。
