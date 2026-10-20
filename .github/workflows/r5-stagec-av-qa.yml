@@ -1,0 +1,103 @@
+name: R5 Independent Stage C Audiovisual QA
+
+# Strictly manual, no workflow_run/pull_request/push: no surprise model charges.
+on:
+  workflow_dispatch:
+    inputs:
+      stagec_run_id:
+        description: "Successful Stage C pull_request build Run ID; one manual Gemini AV review"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: r5-stagec-av-manual-${{ inputs.stagec_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  audiovisual-review:
+    # BOTH opt-ins required. R5_ENABLED=true alone NEVER enables Stage C.
+    if: >-
+      ${{ vars.R5_ENABLED == 'true' &&
+          vars.R5_AV_ENABLED == 'true' &&
+          vars.R5_PROVIDER == 'gemini' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted main only, never PR source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install trusted QA dependencies and ffprobe
+        run: |
+          python -m pip install 'jsonschema>=4.18,<5' 'Pillow>=10,<13'
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Authenticate selected Stage C build and current PR SHA
+        id: source
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_RUN_ID: ${{ inputs.stagec_run_id }}
+        run: |
+          python workflow/r5_av_control.py --mode select \
+            --run-id "$SOURCE_RUN_ID" \
+            --selection "$RUNNER_TEMP/r5_av_selection.json"
+      - name: Prevent already-commented source run from billing Gemini again
+        id: gate
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python workflow/r5_av_control.py --mode preflight \
+            --selection "$RUNNER_TEMP/r5_av_selection.json"
+      - name: Download Stage C WAV, spoken MP4, contract, timing and manifest
+        if: steps.gate.outputs.should_run == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.source.outputs.source_artifact }}
+          run-id: ${{ steps.source.outputs.source_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/r5_av_input
+      - name: Independently listen and watch once using Gemini
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          R5_ENABLED: ${{ vars.R5_ENABLED }}
+          R5_AV_ENABLED: ${{ vars.R5_AV_ENABLED }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          R5_MODEL: ${{ vars.R5_MODEL }}
+        run: |
+          set -euo pipefail
+          test -n "$R5_MODEL" || { echo "::error::Set R5_MODEL first"; exit 1; }
+          python workflow/r5_av_review.py \
+            --selection "$RUNNER_TEMP/r5_av_selection.json" \
+            --artifact-root "$RUNNER_TEMP/r5_av_input" \
+            --model "$R5_MODEL" --out "$RUNNER_TEMP/r5_av_output"
+      - name: Save AV report, real model usage and source hashes
+        if: always() && steps.gate.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: r5-stagec-av-${{ steps.source.outputs.source_run_id }}-${{ steps.source.outputs.implementation_commit }}
+          path: ${{ runner.temp }}/r5_av_output/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Post validated AV feedback, never merge or approve
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python workflow/r5_av_control.py --mode publish \
+            --selection "$RUNNER_TEMP/r5_av_selection.json" \
+            --report "$RUNNER_TEMP/r5_av_output/av_qa_report.json" \
+            --audit "$RUNNER_TEMP/r5_av_output/av_r5_audit.json"

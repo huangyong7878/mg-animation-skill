@@ -47,6 +47,10 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 新增 [Stage C 真实离线配音与 GitHub CI 测试流程](docs/STAGEC_CI_PILOT.md)：同一个 Pilot 001 测试 PR 中，自动生成测试中文解说的 `voice.wav`、可验证的分句 `timings.json`、`timings.srt` 和带 AAC 音轨的 MP4 预览；另一路继续生成 Stage B 无声视频供可选的 **手动** Gemini R5 独立视觉审查。配音按实际动画事件时间固定对齐：B 先进入补货队列、A 后到达发货站。两类制品明确隔离、绑定源代码 SHA，**正式配音仍为 draft，R5 不自动认可 Stage C 有声版本**。
 
+## Stage C 独立视听 QA（Gemini 或纯手动导入）
+
+[查看 Stage C R5 视听审核与本地导入指南](docs/R5_AV_AUTOMATION.md)。**付费模型审核只有人工指定 Stage C Run ID 才会执行**，同时要求 `R5_ENABLED=true` 和新增的 `R5_AV_ENABLED=true`。不使用 GitHub Actions 也可以：外部审核者实际观看含音轨 MP4、听原始 WAV，提交逐句观察 JSON，再由 `workflow/r5_av_manual.py` 离线验签、校验源媒体 SHA 和时间轴并生成 `av_qa_report.json` 与 `av_r5_audit.json`。Stage C 报告不等同 Stage D 正式发布批准；通用 `qa_report.json` 仍由现有 R0–R7 手动审核交接入口接收。
+
 ## R5 手动独立视觉 QA（可切换模型，防止重复计费）
 
 [查看 R5 模型审核配置与安全说明](docs/R5_AUTOMATION.md)。**R5 已改为只有人工点选 GitHub Actions → R5 Independent Visual QA → Run workflow，并明确输入某个已成功的 Pilot PR 渲染 Run ID 才会调用 Gemini/OpenAI/DeepSeek。** `R5_ENABLED=true` 只是允许审核，不会因为 PR push 或 Stage C 自动构建而启动付费请求；关闭时也无法手动发出模型调用。R5 前置检查校验真实 GitHub Run、同仓库开放 PR 的最新 SHA、媒体制品和已有审核评论；每轮最多一次模型 API 请求，无自动重试。不自动合并、不批准正式发布。
