@@ -5,26 +5,90 @@
 > 因此不能用原 Stage C 样片假冒 Stage D 的已批准成片。
 > 本文件没有给予任何 AI 或 Actions 人类审批权。
 
-## 1. 责任与分工
+## 1. 生产阶段必须前移的两个锁
 
-- **R3 + R7**：先由人观看分镜、审稿、决定正式声音与时间轴。
-  将正式的 director_spec.json 的 approval.status 设为 approved，
-  同时记录真实 approved_by / approved_at。此动作由人完成，不由构建器代签。
-  审核过的 narration.txt、voice.wav 和 timings.json 锁定后，用原始
-  字节 SHA256 填 director_spec.narration.audio_sha256 /
-  timings_sha256，设置 narration.status=locked。
-- **R3**：独立检查旁白→画面事件契约，再将
-  stagec_av_cues.json 的 status 从 draft 升级成 approved；
-  narration_plan.json 的 test_only 必须明确为 false。
-  三段内容和时间线必须保持 B 缺货在前、A 发货在后；若修改语速、
-  配音人或解说词，需要重新录音、对齐并重新走人类审批。
-- **R4**：以 approved 的导演规格、已锁定 WAV、计时文件以及真实场景
-  运行本地 Stage D 工具；工具不会合成新音频，**只使用已锁定的音轨**。
-- **独立 R5**：打开 Stage D 的原始 MP4 听音、逐项检查要求，
-  用标准 contracts/qa.schema.json 输出完整 qa_report.json；
-  不可以拿 Stage C 的 av_qa_report.json 改名冒充 Stage D 全项 QA。
-- **R0 + R7**：R0 用 orchestrator 接收交付并导入独立 QA；
-  只有 R7 可以在核查发布清单后决定是否发布和长期归档。
+**这是两条正式生产门禁，不只是 R4 制片完成后的交付手续。**
+
+1. **R2 → R3 → 人类 Script Lock**：R2 确定准确解说句子、叙事顺序；
+   R3 将其与正式 storyboard、导演镜头规格、音画事件契约一一对应。
+   人类在**正式配音和 R4 开始前**核对并签发
+   `script_lock.json`（`contracts/script_lock.schema.json`）。
+   包含 script/plan/cues/storyboard 原始字节 SHA256、
+   不受后续音轨变化影响的导演分镜指纹、规格 revision、
+   人类审批人和时间。用户只确定了三句话，
+   **不代表已经正式批准分镜**；不能由 AI 自签。
+2. **试听 → 人类 Voice Lock**：基于已锁定文案制作可反复试听的语音候选，
+   获得用户明确“这版声音/语速/停顿可用”的决定后，
+   由人签发 `voice_lock.json`（`contracts/voice_lock.schema.json`），
+   绑定前一份 Script Lock、选中的 voice_id/style、真正 WAV 及
+   measured timings 的原始字节 SHA256。**试听选 XiaoxiaoNeural
+   只代表声音方向，不是试听后的 Voice Lock 批准。**
+3. **R0 正式派单前检查两份锁**；没有锁时只允许明确的 Stage B/C
+   原型／测试，而不能称为已进入正式 R4。之后 R4/Stage D
+   只能使用锁定内容，不得临时改解说稿。
+4. **R5 / R7**：Stage D 有声成片制作后独立审阅完整画面和音轨，
+   再进行完整 QA 与 R7 最终发布批准。前两个锁不替代质量审核。
+
+现有导演 Schema 要求 `approval=approved` 时
+`narration=locked`。因此正式文件中的 director_spec 最终在
+**Voice Lock 获准后**更新为双 approved/locked；
+早期 **Script Lock** 单独锁定导演分镜指纹，避免因后面
+填写音频 SHA 而造成导演版本哈希循环依赖。
+
+本次 Pilot 候选内容在
+`work/orders_pilot/script_candidate.txt` 和
+`work/orders_pilot/storyboard_candidate.md`。
+两者不是已批准文件；原 Stage C 的 `test_only=true` 不变。
+
+### 标准生产的 CLI 预检查
+
+```bash
+# 先经人类审定 script_lock.json，检查 R2/R3 文案与导演分镜不变
+python workflow/production_gates.py --stage script \
+  --spec /approved/director_spec.json \
+  --plan /approved/narration_plan.json \
+  --plan-path /approved/narration_plan.json \
+  --cues /approved/av_cues.json \
+  --cues-path /approved/av_cues.json \
+  --script /approved/narration.txt --storyboard /approved/storyboard.md \
+  --script-lock /approved/script_lock.json
+
+# 真正试听并经人类批准后，再额外检查 Voice Lock
+python workflow/production_gates.py --stage voice \
+  --spec /approved/director_spec.json \
+  --plan /approved/narration_plan.json \
+  --plan-path /approved/narration_plan.json \
+  --cues /approved/av_cues.json \
+  --cues-path /approved/av_cues.json \
+  --script /approved/narration.txt --storyboard /approved/storyboard.md \
+  --script-lock /approved/script_lock.json \
+  --audio /approved/voice.wav --timings /approved/timings.json \
+  --voice-lock /approved/voice_lock.json
+
+# 正式 R0 → R4 派单，同样必须验证两份锁
+python workflow/orchestrator.py prepare \
+  --spec /approved/director_spec.json --workdir work/formal_r4 --executor muse \
+  --formal \
+  --script /approved/narration.txt --storyboard /approved/storyboard.md \
+  --plan /approved/narration_plan.json --cues /approved/av_cues.json \
+  --script-lock /approved/script_lock.json \
+  --audio /approved/voice.wav --timings /approved/timings.json \
+  --voice-lock /approved/voice_lock.json
+```
+
+这些 CLI 验证的是**人类声明的审批信息 + 原始字节哈希**，
+无法通过代码单独确认批准者身份或代替真正试听。
+
+### 修改后的返工范围（不会让所有工作一律作废）
+
+- 仅重配音、音频哈希或语速变化：必须重新 **Voice Lock**、音画成片及其
+  QA；未变化的 Script Lock/分镜可以继续使用。
+- 改台词、句序、R3 事件契约或分镜内容：必须**重审 Script Lock**；
+  原 Voice Lock 因绑定旧 Script Lock 同时失效，受影响的 R4
+  渲染和 R5 QA 必须重新进行。
+- 不改变两份锁但修正纯图像实现：R4 生成新源码 SHA、新视频，
+  重新执行受影响的镜头 QA；不能沿用旧 commit 的通过记录。
+- 核心目标变化：回到 R1/R2/R3 审稿与分镜，不能绕过上游审批。
 
 ## 2. 无需 GitHub Actions 的正式离线构建
 
@@ -48,6 +112,9 @@ python workflow/build_stage_d_artifact.py \
   --plan /path/to/approved_narration_plan.json \
   --cue-contract /path/to/approved_av_cues.json \
   --script /path/to/approved_narration.txt \
+  --storyboard /path/to/approved_storyboard.md \
+  --script-lock /path/to/script_lock.json \
+  --voice-lock /path/to/voice_lock.json \
   --audio /path/to/locked_voice.wav \
   --timings /path/to/locked_timings.json \
   --source-sha "$SOURCE_SHA" \
@@ -63,6 +130,8 @@ work/orders_pilot/stagec_narration.json（test_only=true），
 构建器应立即拒绝，不产生冒充正式获批的成片。
 
 前置检查包括：
+0. 独立 Script Lock 与 Voice Lock 均存在、结构有效、和真实
+   文案/分镜/AV cue/WAV/timings SHA256 一致；
 1. approved_by / approved_at、narration.status=locked 及锁定文件相对路径；
 2. WAV 和 timings JSON 的真实字节 SHA256 与 director_spec 一致；
 3. 正式稿与计划中的所有文字完全一致（不接受文字被偷偷替换）；
@@ -97,7 +166,15 @@ roles/REVIEWER.md 和 roles/QUALITY_RUBRIC.md，
 ~~~bash
 python workflow/orchestrator.py prepare \
   --spec /path/to/approved_director_spec.json \
-  --workdir /path/to/stage_d_r0 --executor muse
+  --workdir /path/to/stage_d_r0 --executor muse --formal \
+  --script /path/to/approved_narration.txt \
+  --storyboard /path/to/approved_storyboard.md \
+  --plan /path/to/approved_narration_plan.json \
+  --cues /path/to/approved_av_cues.json \
+  --script-lock /path/to/script_lock.json \
+  --audio /path/to/locked_voice.wav \
+  --timings /path/to/locked_timings.json \
+  --voice-lock /path/to/voice_lock.json
 
 python workflow/orchestrator.py receive \
   --workdir /path/to/stage_d_r0 \

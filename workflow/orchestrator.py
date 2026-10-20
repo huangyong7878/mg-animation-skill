@@ -15,8 +15,10 @@ from pathlib import Path
 
 try:
     from workflow.check_handoff import canonical_digest, required_checks, validate_bundle
+    from workflow.production_gates import verify_production_locks, read as read_lock
 except ModuleNotFoundError:
     from check_handoff import canonical_digest, required_checks, validate_bundle
+    from production_gates import verify_production_locks, read as read_lock
 
 
 ALLOWED_EXECUTORS = ("muse", "deepseek", "other")
@@ -108,7 +110,7 @@ def executor_brief(spec, digest, executor):
     return "\n".join(lines)
 
 
-def prepare(spec_path, workdir, executor="muse"):
+def prepare(spec_path, workdir, executor="muse", formal_assets=None):
     if executor not in ALLOWED_EXECUTORS:
         raise ValueError("Unsupported executor")
     root = Path(workdir).resolve()
@@ -118,16 +120,45 @@ def prepare(spec_path, workdir, executor="muse"):
     errors = validate_bundle(spec)
     if errors:
         raise ValueError("Invalid director specification: " + "; ".join(errors))
+    # Formal R4 dispatch is impossible without BOTH previous human-declared
+    # preproduction approvals. Prototype work remains backward compatible.
+    hashes = None
+    if formal_assets is not None:
+        keys = ("script", "storyboard", "plan", "cues",
+                "audio", "timings", "script_lock", "voice_lock")
+        if any(not formal_assets.get(k) for k in keys):
+            raise ValueError("Formal R4 requires script/storyboard approval and voice approval assets")
+        plan, cues = read_lock(formal_assets["plan"]), read_lock(formal_assets["cues"])
+        hashes = verify_production_locks(
+            spec, plan, cues, formal_assets["script"],
+            formal_assets["storyboard"], formal_assets["plan"],
+            formal_assets["cues"], formal_assets["audio"],
+            formal_assets["timings"], read_lock(formal_assets["script_lock"]),
+            read_lock(formal_assets["voice_lock"]))
     digest = canonical_digest(spec)
     root.mkdir(parents=True, exist_ok=True)
     write_json(root / "director_spec.json", spec)
-    write_text(root / "executor_task.md", executor_brief(spec, digest, executor))
+    task = executor_brief(spec, digest, executor)
+    if hashes:
+        task += ("\n\n## FORMAL R4: upstream production locks verified\n"
+                 "R2/R3 approved script/storyboard and selected voice are fixed.\n"
+                 "No rewriting dialogue or reinterpreting beats at Stage D.\n"
+                 "Script lock digest: " + hashes["script_lock_digest"] + "\n"
+                 "Voice lock digest: " + hashes["voice_lock_digest"] + "\n"
+                 "Changing any locked asset requires NEW human approval and fresh QA.\n")
+        for key, filename in (
+                ("script_lock", "script_lock.json"),
+                ("voice_lock", "voice_lock.json")):
+            shutil.copyfile(formal_assets[key], root / filename)
+    write_text(root / "executor_task.md", task)
     state = {
         "version": "1.0", "project_id": spec["project_id"],
         "spec_id": spec["spec_id"], "spec_revision": spec["revision"],
         "spec_sha256": digest, "executor": executor, "status": "prepared",
         "attempt": 0, "issue_url": None, "implementation_pr_url": None,
         "implementation_commit": None, "history": [],
+        "production_mode": "formal" if hashes else "prototype",
+        "production_lock_hashes": hashes,
     }
     save_state(root, state)
     return state
@@ -179,12 +210,55 @@ def read_pr_head(repository, reference, runner=subprocess.run):
     return data
 
 
+def check_formal_artifact(root, state, spec, artifact_root):
+    """Formal R0 gate: reject a changed script/voice even when R4 says 'pass'."""
+    if state.get("production_mode") != "formal":
+        return
+    base = Path(artifact_root).resolve()
+    files = {
+        "script": "narration.txt",
+        "storyboard": "source/storyboard.md",
+        "plan": "source/narration_plan.json",
+        "cues": "source/approved_av_cues.json",
+        "audio": "media/voice.wav",
+        "timings": "media/timings.json",
+        "script_lock": "approvals/script_lock.json",
+        "voice_lock": "approvals/voice_lock.json",
+    }
+    ensure_files(base, files.values(), "Formal R4")
+    inputs = {key: base / relative for key, relative in files.items()}
+    approvals = verify_production_locks(
+        spec, read_lock(inputs["plan"]), read_lock(inputs["cues"]),
+        inputs["script"], inputs["storyboard"], inputs["plan"],
+        inputs["cues"], inputs["audio"], inputs["timings"],
+        read_lock(inputs["script_lock"]), read_lock(inputs["voice_lock"]))
+    if approvals != state.get("production_lock_hashes"):
+        raise ValueError("R4 changed the previously approved script/voice version")
+    # Compare original R0 lock records, not just hash data in the delivery.
+    for key in ("script_lock", "voice_lock"):
+        if read_lock(inputs[key]) != read_lock(root / (key + ".json")):
+            raise ValueError("R4 delivered a different " + key)
+    from workflow.media_manifest import verify_manifest
+    manifest = read_json(base / "media_manifest.json")
+    delivery = read_json(base / "delivery.json")
+    if delivery["stage"] != "D" or delivery["status"] != "ready_for_qa":
+        raise ValueError("Formal production rejects draft Stage C delivery")
+    problems = verify_manifest(manifest, base, spec, delivery)
+    if problems:
+        raise ValueError("Formal media hash verification failed: " + "; ".join(problems))
+    covered = {f["path"] for f in manifest["files"]}
+    if set(files.values()) - covered:
+        raise ValueError("Formal media manifest omits approved source or lock evidence")
+
+
 def receive(workdir, delivery_path, artifact_root, repository=None, pr=None,
             runner=subprocess.run):
     root, state, spec = load_state(workdir)
     if state["status"] not in ("prepared", "published", "rework_requested"):
         raise ValueError("Cannot receive delivery in state " + state["status"])
     delivery = read_json(delivery_path)
+    if state.get("production_mode") == "formal":
+        check_formal_artifact(root, state, spec, artifact_root)
     errors = validate_bundle(spec, delivery)
     if errors:
         raise ValueError("Delivery does not match specification: " + "; ".join(errors))
@@ -339,6 +413,8 @@ def release_check(workdir, artifact_root):
         raise ValueError("Release requires successful independent QA")
     delivery = read_json(root / "delivery.json")
     qa = read_json(root / "qa_report.json")
+    if state.get("production_mode") == "formal":
+        check_formal_artifact(root, state, spec, artifact_root)
     errors = validate_bundle(spec, delivery, qa, release=True, artifact_root=artifact_root)
     if errors:
         raise ValueError("Release blocked: " + "; ".join(errors))
@@ -352,6 +428,11 @@ def build_parser():
     p.add_argument("--spec", required=True)
     p.add_argument("--workdir", required=True)
     p.add_argument("--executor", choices=ALLOWED_EXECUTORS, default="muse")
+    p.add_argument("--formal", action="store_true",
+                   help="Require approved script/storyboard and voice locks before R4")
+    for key in ("script", "storyboard", "plan", "cues",
+                "audio", "timings", "script-lock", "voice-lock"):
+        p.add_argument("--" + key)
     p = sub.add_parser("publish")
     p.add_argument("--workdir", required=True)
     p.add_argument("--repo", required=True)
@@ -386,7 +467,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
-            result = prepare(args.spec, args.workdir, args.executor)
+            if args.formal:
+                assets = {key: getattr(args, key.replace("-", "_"))
+                          for key in ("script", "storyboard", "plan", "cues",
+                                      "audio", "timings", "script-lock", "voice-lock")}
+                assets = {key.replace("-", "_"): value for key, value in assets.items()}
+            else:
+                keys = ("script", "storyboard", "plan", "cues",
+                        "audio", "timings", "script_lock", "voice_lock")
+                if any(getattr(args, key) for key in keys):
+                    raise ValueError("Formal approval inputs require --formal")
+                assets = None
+            result = prepare(args.spec, args.workdir, args.executor, assets)
         elif args.command == "publish":
             result = publish(args.workdir, args.repo, args.dry_run)
         elif args.command == "receive":

@@ -23,11 +23,13 @@ from workflow.av_sync_contract import validate_av_cues
 from workflow.build_stagec_artifact import check_preview_video
 from workflow.check_handoff import canonical_digest, required_checks, validate_bundle
 from workflow.media_manifest import create_manifest, verify_manifest
+from workflow.production_gates import verify_production_locks
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 LOCKED = ("narration.txt", "media/voice.wav", "media/timings.json")
 SOURCES = ("source/scene.json", "source/narration_plan.json",
-           "source/approved_av_cues.json")
+           "source/approved_av_cues.json", "source/storyboard.md")
+APPROVALS = ("approvals/script_lock.json", "approvals/voice_lock.json")
 
 
 def load(path):
@@ -54,7 +56,8 @@ def command(args):
     return result.stdout
 
 
-def verify_lock(spec, scene, plan, cues, script, wav, timing):
+def verify_lock(spec, scene, plan, cues, script, wav, timing, *,
+                storyboard, plan_path, cue_path, script_lock, voice_lock):
     problems = validate_bundle(spec)
     if problems:
         raise ValueError("Invalid director spec: " + "; ".join(problems))
@@ -64,6 +67,11 @@ def verify_lock(spec, scene, plan, cues, script, wav, timing):
             or not spec["approval"].get("approved_by")
             or not spec["approval"].get("approved_at")):
         raise ValueError("Stage D requires explicit human director approval")
+    # R2→R3 script/storyboard approval comes before voice approval; both
+    # are required before formal R4 can produce Stage D.
+    verify_production_locks(
+        spec, plan, cues, script, storyboard, plan_path, cue_path,
+        wav, timing, script_lock, voice_lock)
     narration = spec["narration"]
     if narration["status"] != "locked":
         raise ValueError("Stage D refuses draft narration")
@@ -115,7 +123,8 @@ def verify_lock(spec, scene, plan, cues, script, wav, timing):
 
 
 def build(spec_path, scene_path, plan_path, cue_path, script_path,
-          audio_path, timings_path, source_sha, output_root):
+          audio_path, timings_path, source_sha, output_root, *,
+          storyboard_path, script_lock_path, voice_lock_path):
     if not SHA.fullmatch(source_sha):
         raise ValueError("Full Git SHA required")
     checkout = command(["git", "rev-parse", "HEAD"]).strip()
@@ -126,12 +135,18 @@ def build(spec_path, scene_path, plan_path, cue_path, script_path,
         raise ValueError("Refusing to overwrite existing Stage D media")
     spec, scene, plan, cues = map(load, (spec_path, scene_path,
                                         plan_path, cue_path))
-    event_report = verify_lock(spec, scene, plan, cues,
-                               script_path, audio_path, timings_path)
+    script_lock = load(script_lock_path)
+    voice_lock = load(voice_lock_path)
+    event_report = verify_lock(
+        spec, scene, plan, cues, script_path, audio_path, timings_path,
+        storyboard=storyboard_path, plan_path=plan_path, cue_path=cue_path,
+        script_lock=script_lock, voice_lock=voice_lock)
     pairs = [
         (script_path, LOCKED[0]), (audio_path, LOCKED[1]),
         (timings_path, LOCKED[2]), (scene_path, SOURCES[0]),
         (plan_path, SOURCES[1]), (cue_path, SOURCES[2]),
+        (storyboard_path, SOURCES[3]),
+        (script_lock_path, APPROVALS[0]), (voice_lock_path, APPROVALS[1]),
     ]
     for source, relative in pairs:
         dest = out / relative
@@ -171,6 +186,9 @@ def build(spec_path, scene_path, plan_path, cue_path, script_path,
             "keyframe_paths": frames,
         },
         "checks": [
+            {"name": "script_storyboard_and_voice_preproduction_locks",
+             "result": "pass",
+             "detail": "Separate human-declared script/storyboard and voice approvals bind original text/plan/cues/storyboard plus final audio/timings; signer identity not cryptographically verified."},
             {"name": "locked_voice_and_director", "result": "pass",
              "detail": "Approved spec metadata and WAV/timing hashes match. Human identity not cryptographically authenticated."},
             {"name": "av_event_timings", "result": "pass",
@@ -214,6 +232,7 @@ def build(spec_path, scene_path, plan_path, cue_path, script_path,
         "Stage D R4 offline render; no TTS/model call and no release approval.\n",
         encoding="utf-8")
     extras = ("director_spec.json", "narration.txt", "av_sync_report.json",
+              *APPROVALS,
               "qa_template.json", "release_checklist.md", "build_log.txt")
     manifest = create_manifest(spec, delivery, out, backend="local", extras=extras)
     save(out / "media_manifest.json", manifest)
@@ -230,12 +249,15 @@ def build(spec_path, scene_path, plan_path, cue_path, script_path,
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("spec", "scene", "plan", "cue-contract", "script",
-                 "audio", "timings", "source-sha", "out"):
+                 "audio", "timings", "source-sha", "out",
+                 "storyboard", "script-lock", "voice-lock"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args(argv)
     try:
         build(args.spec, args.scene, args.plan, args.cue_contract, args.script,
-              args.audio, args.timings, args.source_sha, args.out)
+              args.audio, args.timings, args.source_sha, args.out,
+              storyboard_path=args.storyboard, script_lock_path=args.script_lock,
+              voice_lock_path=args.voice_lock)
     except (ValueError, KeyError, OSError, RuntimeError, json.JSONDecodeError,
             subprocess.CalledProcessError, subprocess.TimeoutExpired,
             wave.Error) as exc:

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R3/R7 Formal Voice Listening Approval and Timings Lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "approved_by",
+    "approved_at",
+    "script_lock_sha256",
+    "voice_id",
+    "voice_style",
+    "audio_sha256",
+    "timings_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "status": {
+      "const": "approved"
+    },
+    "approved_by": {
+      "type": "string",
+      "minLength": 2
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "script_lock_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "voice_id": {
+      "type": "string",
+      "minLength": 2
+    },
+    "voice_style": {
+      "type": "string",
+      "minLength": 2
+    },
+    "audio_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "timings_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
