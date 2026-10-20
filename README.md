@@ -37,7 +37,9 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 ## R5 自动独立视觉 QA（可切换模型）
 
-已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini` 或 `openai`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
+已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini`、`openai` 或 `deepseek`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
+
+DeepSeek 视觉审查请使用 `R5_MODEL=deepseek-flash`，图片输入通过 Responses API；不直接传 MP4，连续运动证据不足时报告应为 `pending`。
 
 模型密钥必须在 GitHub Actions Secrets 配置，绝不能写入仓库。需要先合并真实渲染 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12) 和本 R5 PR，并配置服务商才能启用。详情见上述文档。
 
