@@ -3,9 +3,9 @@
   "project_id": "orders_two_routes",
   "spec_id": "orders_shot_001",
   "spec_revision": 1,
-  "status": "draft",
+  "status": "approved",
   "event_source": "scripts/primitives/orderflow.py:PILOT_EVENT_SECONDS",
-  "notes": "R3 formal candidate pending human Script Lock review; change status to approved only after explicit human approval and before generating file hashes.",
+  "notes": "R3 event contract approved by project owner through ChatGPT on 2026-10-20; locked to exact asset SHA256 in separate Script Lock record. This does not approve voice.",
   "cues": [
     {
       "segment_id": "intro",
