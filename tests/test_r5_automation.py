@@ -10,7 +10,8 @@ from unittest.mock import patch
 
 from workflow.check_handoff import canonical_digest, required_checks
 from workflow.r5_review import (
-    call_gemini, call_openai, call_deepseek, parse_model_report, make_prompt,
+    call_gemini, call_openai, call_deepseek, call_openai_compatible,
+    OPENAI_COMPATIBLE_PROVIDERS, parse_model_report, make_prompt,
     verify_inputs, run_review, safe_model, is_r5_enabled, main as r5_main,
 )
 from workflow.r5_pr_feedback import safe_event, publish, comment_body, preflight
@@ -138,6 +139,42 @@ class TestR5ModelAdapters(unittest.TestCase):
         self.assertIn("Bearer ", headers["Authorization"])
         self.assertEqual(payload["input"][0]["content"][1]["type"], "input_image")
         self.assertIn("如果某条连续运动证据不足", payload["input"][0]["content"][0]["text"])
+
+    def test_compatible_providers_share_payload_and_response_logic(self):
+        picture = self.root / "t00005300.png"
+        picture.write_bytes(b"fake image bytes from test harness")
+        collected = []
+
+        def fake_request(url, headers, payload):
+            collected.append((url, headers, payload))
+            return {
+                "status": "completed",
+                "output": [{"type": "message", "content": [{
+                    "type": "output_text",
+                    "text": json.dumps(model_answer(self.spec), ensure_ascii=False),
+                }]}],
+                "usage": {"input_tokens": 50, "output_tokens": 20, "total_tokens": 70},
+            }
+
+        with patch("workflow.r5_review.select_images", return_value=[picture]):
+            first, first_usage = call_openai_compatible(
+                "Return JSON", self.video, self.root,
+                "gpt-4.1", "test_key", "openai", fake_request)
+            second, second_usage = call_openai_compatible(
+                "Return JSON", self.video, self.root,
+                "deepseek-flash", "test_key", "deepseek", fake_request)
+        self.assertEqual(first, second)
+        self.assertEqual(first_usage, second_usage)
+        first_url, first_header, first_body = collected[0]
+        second_url, second_header, second_body = collected[1]
+        self.assertEqual(first_url, "https://api.openai.com/v1/responses")
+        self.assertEqual(second_url, "https://api.deepseek.com/responses")
+        self.assertEqual(first_header["Authorization"], second_header["Authorization"])
+        self.assertEqual(first_body["input"], second_body["input"])
+        self.assertEqual(first_body["text"], second_body["text"])
+        self.assertNotIn("reasoning", first_body)
+        self.assertEqual(second_body["reasoning"]["effort"], "none")
+        self.assertEqual(set(OPENAI_COMPATIBLE_PROVIDERS), {"openai", "deepseek"})
 
     def test_deepseek_flash_vision_responses_payload_and_usage(self):
         calls = []
