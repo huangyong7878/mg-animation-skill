@@ -388,6 +388,42 @@ python workflow/orchestrator.py record-qa \
 
 `role_pack.py qa` 目前只核对媒体**存在、非空、文件扩展名**；它不证明媒体可解码。建议另用 `ffprobe` 验证视频元数据并让审查模型实际读取。`record-qa` 只验证结构、版本和状态，**不能证明**声明的独立上下文或所写证据真实发生。
 
+### 6.1 AGENTS 入口与媒体证据辅助工具
+
+请先阅读仓库根目录 [AGENTS.md](../AGENTS.md)，指定 R5 角色，再按上方步骤执行；不支持自动加载 `AGENTS.md` 的平台，应明确发指令或上传文件。
+
+`workflow/qa_evidence.py` 会使用真正的 `ffprobe/ffmpeg` 从给定 MP4 提取**请求时间点附近**的帧、联系表和 SHA256 证据索引。它不会寻找视觉缺陷，也不会评价镜头是否合格。用于首次盲审时，建议先均匀抽帧，之后由独立审查者根据实际观看结果确定重点时间窗，避免受到上轮报告的暗示。
+
+```bash
+# 以真实制品路径替换示例路径；输出目录需为空，依赖 ffmpeg/ffprobe 和 Pillow
+python workflow/qa_evidence.py create \
+  --spec examples/workflow_orders_spec.json \
+  --video work/pilot001_input/attempt-001/media/shot_01_silent.mp4 \
+  --outdir work/qa_evidence/pilot001_uniform \
+  --interval 0.5
+
+python workflow/qa_evidence.py verify \
+  --spec examples/workflow_orders_spec.json \
+  --video work/pilot001_input/attempt-001/media/shot_01_silent.mp4 \
+  --evidence-dir work/qa_evidence/pilot001_uniform
+
+# 将时间证据和真正的 MP4 一同打包给独立模型
+python workflow/role_pack.py qa \
+  --spec examples/workflow_orders_spec.json \
+  --delivery work/pilot001_input/attempt-001/delivery.json \
+  --video work/pilot001_input/attempt-001/media/shot_01_silent.mp4 \
+  --evidence-dir work/qa_evidence/pilot001_uniform \
+  --out work/portable/pilot001_qa_with_evidence
+
+# 初看视频、发现需要进一步观察的时间后，额外创建一个新的重点窗口
+python workflow/qa_evidence.py create \
+  --spec examples/workflow_orders_spec.json \
+  --video work/pilot001_input/attempt-001/media/shot_01_silent.mp4 \
+  --outdir work/qa_evidence/pilot001_focus   --interval 2 --focus 5.3 --focus-radius 1.0 --focus-step 0.2
+```
+
+所有文件的实际路径须来自**真实下载或上传并解压的制品**；本仓库不存在自带的 attempt-002 视频。此工具只抽取静帧，连续运动的判定仍要求真实 MP4/足够连续的时间序列。工具记录的是请求时间点，不声称已经验证每个 PNG 的精确解码 PTS。
+
 ## 7. R6 — 定点返工监督（强模型或规则 Agent）
 
 **提示词**

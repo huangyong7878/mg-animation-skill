@@ -35,6 +35,12 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 演示视频用离线发音器生成的中文语音**很机械**，不代表 Skill 的最终配音质量。正式作品请优先测试 Edge TTS 或替换专业语音后端；切换后应重新提取音频时间戳。
 
+## 所有 AI 模型的统一入口：AGENTS.md
+
+无论由 ChatGPT、Claude、Gemini、Muse、DeepSeek 或 Codex 接手，请先阅读 **[AGENTS.md](AGENTS.md)**，选择 R0–R7 对应角色，再跳转至 [完整多模型操作手册](docs/MULTI_MODEL_PLAYBOOK.md)。该文件不是模型厂商专属指令；无法自动读取 AGENTS.md 的平台，需要明确发送“先读 AGENTS.md”或提供文件附件。
+
+独立审片 R5 现在还可以使用 `workflow/qa_evidence.py` 按固定时间和重点事件时间生成连续抽样帧、联系表及 SHA256 索引，并通过 `workflow/role_pack.py qa --evidence-dir ...` 附入 QA ZIP。**自动抽帧不是自动审片**。
+
 ## 多模型协作完整操作手册（从零到交付）
 
 **[打开完整操作手册：每个角色的提示词、命令和交接规则](docs/MULTI_MODEL_PLAYBOOK.md)**。
