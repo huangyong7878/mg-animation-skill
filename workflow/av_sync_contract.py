@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "contracts/av_sync_cues.schema.json"
 
 
-def validate_av_cues(spec, plan, events, contract, timings=None):
+def validate_av_cues(spec, plan, events, contract, timings=None, expected_status="draft"):
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     errors = list(Draft202012Validator(schema).iter_errors(contract))
     if errors:
@@ -25,8 +25,8 @@ def validate_av_cues(spec, plan, events, contract, timings=None):
                             ("spec_revision", spec["revision"])):
         if contract[field] != expected:
             raise ValueError(f"AV cue contract {field} differs from director spec")
-    if contract["status"] != "draft":
-        raise ValueError("Pilot Stage C cue contract must be draft, not release approved")
+    if expected_status not in ("draft", "approved") or contract["status"] != expected_status:
+        raise ValueError(f"AV cue contract must be {expected_status} for this build")
     if contract["event_source"] != "scripts/primitives/orderflow.py:PILOT_EVENT_SECONDS":
         raise ValueError("Unexpected visual event source")
     if not isinstance(events, dict) or not all(
@@ -107,8 +107,9 @@ def validate_av_cues(spec, plan, events, contract, timings=None):
     return {
         "schema_version": "1.0",
         "result": "mechanical_pass",
-        "scope": "Stage C draft: declared renderer events vs planned/measured TTS only",
-        "director_approval": "draft",
+        "scope": ("Stage C draft" if expected_status == "draft" else "Stage D locked")
+                 + ": declared renderer events vs planned/measured audio only",
+        "director_approval": expected_status,
         "independent_audiovisual_review": False,
         "verified_video_pixels": False,
         "verified_spoken_audio_semantics": False,

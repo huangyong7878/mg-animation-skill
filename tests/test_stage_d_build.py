@@ -1,0 +1,322 @@
+"""Stage D Pilot: approval lock, true media provenance, fail-closed release."""
+import copy
+import hashlib
+import json
+import subprocess
+import tempfile
+import unittest
+import wave
+from pathlib import Path
+from unittest.mock import patch
+
+from workflow.build_stage_d_artifact import (
+    ROOT, LOCKED, SOURCES, build, verify_lock, digest,
+)
+from workflow.check_handoff import validate_bundle
+from workflow.media_manifest import verify_manifest
+from workflow.production_gates import director_storyboard_digest, verify_production_locks
+from workflow.check_handoff import canonical_digest
+
+SPEC = json.loads((ROOT / "examples/workflow_orders_spec.json").read_text())
+SCENE = json.loads((ROOT / "work/orders_pilot/scene.json").read_text())
+PLAN = json.loads((ROOT / "work/orders_pilot/stagec_narration.json").read_text())
+CUES = json.loads((ROOT / "work/orders_pilot/stagec_av_cues.json").read_text())
+HEAD = "a" * 40
+
+
+class StageDTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.spec = copy.deepcopy(SPEC)
+        self.spec["approval"] = {
+            "status": "approved", "approved_by": "UNIT_TEST_ONLY_FAKE_APPROVER",
+            "approved_at": "2026-10-20T00:00:00Z"}
+        self.spec["narration"].update({
+            "status": "locked", "audio_path": LOCKED[1],
+            "timings_path": LOCKED[2]})
+        self.scene = copy.deepcopy(SCENE)
+        self.plan = copy.deepcopy(PLAN)
+        self.plan["test_only"] = False
+        self.cues = copy.deepcopy(CUES)
+        self.cues["status"] = "approved"
+        self.timing = {
+            "duration": 13.0, "segments": [
+                {"id": self.plan["narration"]["segments"][0]["id"],
+                 "text": self.plan["narration"]["segments"][0]["text"],
+                 "start": 0.0, "end": 2.8585},
+                {"id": self.plan["narration"]["segments"][1]["id"],
+                 "text": self.plan["narration"]["segments"][1]["text"],
+                 "start": 5.9, "end": 9.24},
+                {"id": self.plan["narration"]["segments"][2]["id"],
+                 "text": self.plan["narration"]["segments"][2]["text"],
+                 "start": 9.55, "end": 12.59},
+            ],
+        }
+        self.script = self.root / "narration.txt"
+        self.script.write_text(
+            "\n".join(x["text"] for x in self.plan["narration"]["segments"]) + "\n",
+            encoding="utf-8")
+        self.wav = self.root / "voice.wav"
+        with wave.open(str(self.wav), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(22050)
+            w.writeframes(b"\x01\x00" * (13 * 22050))
+        self.timings = self.root / "timings.json"
+        self.timings.write_text(json.dumps(self.timing), encoding="utf-8")
+        self.spec["narration"]["audio_sha256"] = digest(self.wav)
+        self.spec["narration"]["timings_sha256"] = digest(self.timings)
+        self.storyboard = self.root / "storyboard.md"
+        self.storyboard.write_text("# UNIT TEST storyboard\n\nMock order A/B route", encoding="utf-8")
+        self.plan_path = self.root / "plan.json"
+        self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+        self.cue_path = self.root / "cues.json"
+        self.cue_path.write_text(json.dumps(self.cues), encoding="utf-8")
+        self.script_lock = {
+            "schema_version": "1.0", "status": "approved",
+            "approved_by": "UNIT_TEST_ONLY_FAKE_APPROVER",
+            "approved_at": "2026-10-20T00:00:00Z",
+            "revision": 1,
+            "project_id": self.spec["project_id"],
+            "spec_id": self.spec["spec_id"],
+            "spec_revision": self.spec["revision"],
+            "script_sha256": digest(self.script),
+            "plan_sha256": digest(self.plan_path),
+            "cues_sha256": digest(self.cue_path),
+            "storyboard_sha256": digest(self.storyboard),
+            "director_storyboard_sha256": director_storyboard_digest(self.spec),
+        }
+        self.voice_lock = {
+            "schema_version": "1.0", "status": "approved",
+            "approved_by": "UNIT_TEST_ONLY_FAKE_APPROVER",
+            "approved_at": "2026-10-20T00:00:00Z",
+            "script_lock_sha256": canonical_digest(self.script_lock),
+            "voice_id": "zh-CN-XiaoxiaoNeural",
+            "voice_style": "professional-calm",
+            "audio_sha256": digest(self.wav),
+            "timings_sha256": digest(self.timings),
+        }
+        self.script_lock_path = self.root / "script_lock.json"
+        self.voice_lock_path = self.root / "voice_lock.json"
+        self.script_lock_path.write_text(json.dumps(self.script_lock), encoding="utf-8")
+        self.voice_lock_path.write_text(json.dumps(self.voice_lock), encoding="utf-8")
+        self.args = (self.script, self.wav, self.timings)
+
+    def check(self):
+        # Deliberately use the last committed fixture: changes to script/plan
+        # must invalidate the old human approval instead of silently re-locking.
+        return verify_lock(
+            self.spec, self.scene, self.plan, self.cues, *self.args,
+            storyboard=self.storyboard, plan_path=self.plan_path,
+            cue_path=self.cue_path, script_lock=self.script_lock,
+            voice_lock=self.voice_lock)
+
+    def test_synthetic_locked_fixture_passes_metadata_not_release(self):
+        self.assertEqual(validate_bundle(self.spec), [])
+        result = self.check()
+        self.assertEqual(result["director_approval"], "approved")
+        self.assertEqual(result["result"], "mechanical_pass")
+        self.assertFalse(result["independent_audiovisual_review"])
+        self.assertEqual([x["segment_id"] for x in result["cues"]],
+                         ["intro", "out_of_stock", "in_stock"])
+
+    def test_unapproved_director_and_voice_are_blocked(self):
+        self.spec["approval"] = {"status": "draft"}
+        with self.assertRaises(ValueError):
+            self.check()
+        self.spec["approval"] = {"status": "approved",
+                                 "approved_by": "UNIT_TEST_ONLY_FAKE_APPROVER",
+                                 "approved_at": "2026-10-20T00:00:00Z"}
+        self.spec["narration"]["status"] = "draft"
+        with self.assertRaisesRegex(ValueError, "lock"):
+            self.check()
+
+    def test_draft_cue_or_test_only_plan_cannot_be_staged(self):
+        self.plan["test_only"] = True
+        with self.assertRaisesRegex(ValueError, "test_only narration"):
+            self.check()
+        self.plan["test_only"] = False
+        self.cues["status"] = "draft"
+        with self.assertRaisesRegex(ValueError, "approved|lock hash"):
+            self.check()
+
+    def test_audio_and_timing_locked_byte_hashes_cannot_be_bypassed(self):
+        original_wav = self.wav.read_bytes()
+        self.wav.write_bytes(original_wav + b"t")
+        with self.assertRaisesRegex(ValueError, "audio_sha256"):
+            self.check()
+        self.wav.write_bytes(original_wav)
+        self.timings.write_text(self.timings.read_text() + " ", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "timings_sha256"):
+            self.check()
+
+    def test_wrong_spoken_subject_or_early_voice_blocks_stage_d(self):
+        self.plan["narration"]["segments"][1]["text"] = "库存充足，订单A发货。"
+        with self.assertRaisesRegex(ValueError, "Script|script"):
+            self.check()
+        self.plan = copy.deepcopy(PLAN)
+        self.plan["test_only"] = False
+        self.timing["segments"][1]["start"] = 3.2
+        self.timings.write_text(json.dumps(self.timing), encoding="utf-8")
+        self.spec["narration"]["timings_sha256"] = digest(self.timings)
+        with self.assertRaisesRegex(ValueError, "Voice lock|timings_sha256"):
+            self.check()
+
+    def test_mismatched_director_canvas_or_scene_rejected(self):
+        self.scene["canvas"]["duration"] = 14.0
+        with self.assertRaisesRegex(ValueError, "duration/canvas"):
+            self.check()
+        self.scene = copy.deepcopy(SCENE)
+        self.scene["scenes"][0]["elements"] = [{"type": "text", "text": "FAKE"}]
+        with self.assertRaisesRegex(ValueError, "approved Pilot"):
+            self.check()
+
+    def test_late_edits_invalidate_script_and_storyboard_before_r4(self):
+        original = self.script.read_text(encoding="utf-8")
+        self.script.write_text(original.replace("订单B", "订单A"), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "script_sha256"):
+            self.check()
+        self.script.write_text(original, encoding="utf-8")
+        self.storyboard.write_text(self.storyboard.read_text() + "\nchanged", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "storyboard_sha256"):
+            self.check()
+        self.storyboard.write_text("# UNIT TEST storyboard\n\nMock order A/B route", encoding="utf-8")
+        self.spec["creative"]["core_message"] += "changed after script approval"
+        with self.assertRaisesRegex(ValueError, "director storyboard"):
+            self.check()
+
+    def test_voice_lock_cannot_be_used_with_another_script_revision(self):
+        self.voice_lock["script_lock_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "stale script"):
+            self.check()
+
+    def test_r0_formal_prepare_requires_both_approved_locks(self):
+        from workflow.orchestrator import prepare, load_state
+        p = self.root / "approved_spec.json"
+        p.write_text(json.dumps(self.spec), encoding="utf-8")
+        assets = {
+            "script": self.script, "storyboard": self.storyboard,
+            "plan": self.plan_path, "cues": self.cue_path,
+            "audio": self.wav, "timings": self.timings,
+            "script_lock": self.script_lock_path,
+            "voice_lock": self.voice_lock_path,
+        }
+        with self.assertRaisesRegex(ValueError, "requires --formal"):
+            prepare(p, self.root / "no_formal")
+        with self.assertRaisesRegex(ValueError, "Formal R4 requires"):
+            prepare(p, self.root / "not_ready", formal_assets={})
+        result = prepare(p, self.root / "formal_R4", formal_assets=assets)
+        self.assertEqual(result["production_mode"], "formal")
+        self.assertEqual(result["production_lock_hashes"]["script_lock_digest"],
+                         canonical_digest(self.script_lock))
+        task = (self.root / "formal_R4/executor_task.md").read_text()
+        self.assertIn("No rewriting dialogue", task)
+        self.assertTrue((self.root / "formal_R4/voice_lock.json").is_file())
+        self.script.write_text("编辑后再交给 R4", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "script_sha256"):
+            prepare(p, self.root / "stale_formal_R4", formal_assets=assets)
+
+    def test_source_sha_failure_prevents_final_render(self):
+        with self.assertRaisesRegex(ValueError, "Full Git SHA"):
+            build(None, None, None, None, None, None, None,
+                  "short", self.root / "out", storyboard_path=self.storyboard,
+                  script_lock_path=self.script_lock_path,
+                  voice_lock_path=self.voice_lock_path)
+
+    def test_full_build_with_mocked_video_commands_creates_review_only_bundle(self):
+        files = {}
+        for name, obj in (("spec.json", self.spec), ("scene.json", self.scene),
+                          ("plan.json", self.plan), ("cues.json", self.cues)):
+            path = self.root / name
+            path.write_text(json.dumps(obj), encoding="utf-8")
+            files[name] = path
+        def fake_command(argv):
+            argv = list(map(str, argv))
+            if argv[:3] == ["git", "rev-parse", "HEAD"]:
+                return HEAD + "\n"
+            if argv[0] == "ffprobe":
+                return json.dumps({
+                    "format": {"duration": "13.0"},
+                    "streams": [
+                        {"codec_type": "video", "codec_name": "h264",
+                         "width": 960, "height": 540, "nb_frames": "312"},
+                        {"codec_type": "audio", "codec_name": "aac"},
+                    ]})
+            if any("scripts/render.py" in item for item in argv):
+                Path(argv[-1]).write_bytes(b"mocked MP4 (not a real CI video)")
+            if argv[0] == "ffmpeg":
+                Path(argv[-1]).write_bytes(b"mocked review frame")
+            return ""
+        # The named build input files must have identical bytes to the
+        # human-approved lock, not independently reformatted JSON.
+        for source, key in ((files["plan.json"], "plan_sha256"),
+                            (files["cues.json"], "cues_sha256")):
+            if key == "plan_sha256":
+                source.write_bytes(self.plan_path.read_bytes())
+            else:
+                source.write_bytes(self.cue_path.read_bytes())
+        out = self.root / "out"
+        with patch("workflow.build_stage_d_artifact.command", fake_command):
+            delivery = build(
+                files["spec.json"], files["scene.json"], files["plan.json"],
+                files["cues.json"], *self.args, HEAD, out,
+                storyboard_path=self.storyboard,
+                script_lock_path=self.script_lock_path,
+                voice_lock_path=self.voice_lock_path)
+        self.assertEqual(delivery["stage"], "D")
+        self.assertEqual(delivery["status"], "ready_for_qa")
+        self.assertEqual(delivery["implementation_commit"], HEAD)
+        self.assertTrue((out / "approvals/script_lock.json").is_file())
+        self.assertTrue((out / "approvals/voice_lock.json").is_file())
+        self.assertTrue((out / "source/storyboard.md").is_file())
+        qa = json.loads((out / "qa_template.json").read_text())
+        self.assertEqual(qa["decision"], "pending")
+        self.assertFalse(qa["reviewer"]["independent_context"])
+        self.assertTrue(all(c["result"] == "needs_review" for c in qa["checks"]))
+        self.assertTrue(validate_bundle(
+            self.spec, delivery, qa, release=True, artifact_root=out))
+        manifest = json.loads((out / "media_manifest.json").read_text())
+        self.assertEqual(verify_manifest(manifest, out, self.spec, delivery), [])
+        self.assertEqual(manifest["storage"]["backend"], "local")
+        covered = {item["path"] for item in manifest["files"]}
+        self.assertTrue(set(SOURCES).issubset(covered))
+        self.assertTrue({"approvals/script_lock.json",
+                         "approvals/voice_lock.json"}.issubset(covered))
+        # Test the actual formal R0 intake using precisely the same lock
+        # records that R2/R3 and the voice reviewer had allegedly approved.
+        from workflow.orchestrator import prepare, receive, release_check
+        assets = {
+            "script": self.script, "storyboard": self.storyboard,
+            "plan": self.plan_path, "cues": self.cue_path,
+            "audio": self.wav, "timings": self.timings,
+            "script_lock": self.script_lock_path,
+            "voice_lock": self.voice_lock_path,
+        }
+        formal = self.root / "formal_intake"
+        prepare(files["spec.json"], formal, formal_assets=assets)
+        imported_lock = out / "approvals/voice_lock.json"
+        correct_lock = imported_lock.read_bytes()
+        imported_lock.write_bytes(correct_lock + b" ")
+        with self.assertRaisesRegex(ValueError, "changed|lock|hash"):
+            receive(formal, out / "delivery.json", out)
+        imported_lock.write_bytes(correct_lock)
+        self.assertEqual(receive(formal, out / "delivery.json", out)["status"],
+                         "implementation_received")
+        with self.assertRaisesRegex(ValueError, "Release requires"):
+            release_check(formal, out)
+        (out / "media/voice.wav").write_bytes(b"tamper")
+        self.assertTrue(verify_manifest(manifest, out, self.spec, delivery))
+        with self.assertRaisesRegex(ValueError, "overwrite"):
+            with patch("workflow.build_stage_d_artifact.command", fake_command):
+                build(files["spec.json"], files["scene.json"],
+                      files["plan.json"], files["cues.json"],
+                      *self.args, HEAD, out,
+                      storyboard_path=self.storyboard,
+                      script_lock_path=self.script_lock_path,
+                      voice_lock_path=self.voice_lock_path)
+
+
+if __name__ == "__main__":
+    unittest.main()

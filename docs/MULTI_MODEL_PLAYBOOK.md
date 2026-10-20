@@ -219,6 +219,25 @@ python workflow/role_pack.py director \
 
 **交接约束**：`director_spec.json` 的 `approval` 初始应为 `draft`；审查不等于擅自审批。不能把 Director Spec 与引擎使用的 `scene.json` 混为一谈：前者描述“必须表现什么”，后者是实现者的具体渲染输入。
 
+### 从 R2/R3 到正式 R4 的冻结点
+
+**正式制作不是先动画后定稿**：R2 先完成逐字解说和对应分镜，
+R3 先完成导演视觉规格、事件顺序、预估句级时间窗。
+人类在配音前明确审查并签发 `script_lock.json`，绑定
+文案、分镜、plan、AV cue 与不含声音哈希的导演分镜指纹。
+此时 `director_spec.narration` 仍可处于草稿（正式音频尚未产生）。
+随后制作专业女声/男声**试听**，只有人类真的试听认可后才签发
+`voice_lock.json`，绑定 Script Lock 和真正 WAV、timings 的 SHA256。
+R0 以 `prepare --formal` 先校验两把锁，否则拒绝启动正式 R4；
+Stage D 构建及正式 R0 `receive` 再验证原始审批与媒体哈希。
+仅 Stage B/C 原型允许省略双锁，不能冒充正式制作。
+
+若修改脚本/分镜/事件契约，旧 Script Lock 与 Voice Lock 立即失效；
+仅声音/语速变更则保留原 Script Lock 但重审 Voice Lock。
+旧视频/QA 不自动适用于新提交。批准权属于人类；哈希只保护字节，
+并不证明审核者真的听过声音。
+操作指南：[Stage D 上游审批](../docs/STAGE_D_FINAL_HANDOFF.md)。
+
 ## 5. R4 — 动画实现工程师（Muse / DeepSeek / Codex）
 
 **适用模型**：具备 Git 仓库读写、Python、终端、FFmpeg 和渲染能力的代码模型。即使便宜但无法运行真实渲染器，也不符合这一职位要求。

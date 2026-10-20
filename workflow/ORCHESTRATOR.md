@@ -2,6 +2,20 @@
 
 **本阶段已经实现本地状态机 + GitHub Issue/PR 人工触发的交接，不是自动模型调用平台。** 强模型、Muse 和 DeepSeek 暂时通过共享文件/仓库协作。后续可以把这些确定性步骤接进 API 或受控 GitHub Actions 工作流。
 
+## 正式生产的 R0 派单门禁（先锁内容，后做动画）
+
+`prepare` 原有参数仍用于技术验证/原型，允许 `draft`；
+正式业务必须加 `--formal`，同时提供 R2/R3 审定的
+script、storyboard、plan、approved AV cues、`script_lock.json`，
+以及人类试听批准的原始 WAV、measured timings、`voice_lock.json`。
+如果缺了任一文件或内容哈希/导演分镜发生变化，**拒绝派给 R4**。
+
+正式 `receive` 还会复核 R0 最初批准的 Script/Voice Lock 是否等于
+R4 交付包中的原始记录，验证 Media Manifest 的所有 SHA256；
+正式 `release-check` 会再核实它们。因此模型不能只在最后偷偷修改台词
+或更换配音。R5/R7 仍独立决策，元数据检查不验证真实批准人身份。
+使用命令和返工范围参见 [Stage D 手册](../docs/STAGE_D_FINAL_HANDOFF.md)。
+
 ## 流转状态
 
 prepared → published（可跳过）→ implementation_received → review_pending

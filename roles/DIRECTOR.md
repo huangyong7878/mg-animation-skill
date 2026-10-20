@@ -19,6 +19,22 @@
 - **技术路线**：判定 `standard` 或 `custom`；`custom` 是需要能力的声明，不代表任意动态模块载入/沙箱已经存在。不要因现有原语不足而悄悄删减设计。
 - **验收定义**：为每 Shot 写可观察的 `must_show`、`continuous_motion` 和人工能检查的 `acceptance`，侧重观众感知及真实动态。
 
+## 正式解说稿的上游冻结点（R2 → R3 → R4）
+
+不得先令 R4 完成正式动画，到 Stage D 才“决定”解说词。
+R2 的逐字台词及先后顺序、R2 分镜、R3 的 director_spec
+视觉要求和 AV 事件契约，在**正式配音之前**交给人类审查。
+只有人类认可并填写 `contracts/script_lock.schema.json` 的
+Script Lock（包含真实文案/分镜/场景要求的 SHA256）之后，
+才允许制作正式配音试听。试听并确认后另由人类出具
+`contracts/voice_lock.schema.json` 的 Voice Lock，固定源 Script Lock、
+音色、实测语音字节及 timings 的哈希。R0 的正式派单及 R4 Stage D
+均必须验证两份锁。**不得自行把 draft 改成 approved**。
+
+改文字/镜头要求必须恢复 R2/R3 审核并失效下游 Voice Lock；
+仅改音色/语速则重新 Voice Lock、音画与独立 QA。
+正式审核依据 [Stage D 说明](../docs/STAGE_D_FINAL_HANDOFF.md)。
+
 ## 必须交付
 1. `storyboard.md`：人可读的分镜。每镜头包括目标、观众实际看到的变化、Beat 映射和阅读节奏。不在这份创意分镜里堆引擎坐标或代码。
 2. `director_spec.json`：严格遵守 `contracts/director_spec.schema.json`；`visual_contract.shot_id` 与镜头 id 一致，所有 requirement id 该镜唯一；场景起止位于 output duration 内。

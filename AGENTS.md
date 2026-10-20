@@ -28,6 +28,17 @@
 
 **路由优先级**：明确指定角色 > 用户描述的实际任务 > 模型品牌默认印象。模型名称不决定职责（例如 Claude 可以做 R3 或 R5；Muse 只有拥有代码与渲染能力时才能完成 R4）。R2 与 R3 可以由同一个强模型顺序完成；**R4 与 R5 必须在独立上下文中审查**。不要把实现者自己的自评伪装成独立 QA。
 
+## 正式生产强制两道上游审批门禁
+
+**R2 → R3 → Script Lock（人类确认文案+分镜）→ 试听 → Voice Lock（人类确认声音+时间轴）→ R0 正式派单 → R4 → R5 → R7**。
+正式 R4 不允许“先完成动画、Stage D 再决定解说稿”。
+`workflow/production_gates.py` 分别核验两份锁及原始源文件 SHA256；
+`workflow/orchestrator.py prepare --formal` 及 Stage D 构建强制要求双锁。
+**只有**显式 Stage B/C 技术原型可以使用 draft，不能冒充正式制作。
+改变解说稿/分镜/AV cue 会废止 Script Lock、关联 Voice Lock 和受影响的
+成片/QA；只换声音需重新 Voice Lock 及音画审核。
+详见 [Stage D / 前置审批与返工](docs/STAGE_D_FINAL_HANDOFF.md)。
+
 ## 2. 三种最常见的直接启动方式
 
 ### R3：替代 ChatGPT 当总导演
