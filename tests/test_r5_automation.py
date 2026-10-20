@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from workflow.check_handoff import canonical_digest, required_checks
 from workflow.r5_review import (
-    call_gemini, call_openai, parse_model_report, make_prompt,
+    call_gemini, call_openai, call_deepseek, parse_model_report, make_prompt,
     verify_inputs, run_review, safe_model, is_r5_enabled, main as r5_main,
 )
 from workflow.r5_pr_feedback import safe_event, publish, comment_body, preflight
@@ -138,6 +138,91 @@ class TestR5ModelAdapters(unittest.TestCase):
         self.assertIn("Bearer ", headers["Authorization"])
         self.assertEqual(payload["input"][0]["content"][1]["type"], "input_image")
         self.assertIn("如果某条连续运动证据不足", payload["input"][0]["content"][0]["text"])
+
+    def test_deepseek_flash_vision_responses_payload_and_usage(self):
+        calls = []
+        a = self.root / "contact_sheet_01.jpg"
+        a.write_bytes(b"mocked jpeg not decoded by model adapter")
+        timed = self.root / "t00005300.png"
+        timed.write_bytes(b"mocked png not decoded by model adapter")
+
+        def fake_http(url, headers, payload):
+            calls.append((url, headers, payload))
+            return {
+                "status": "completed",
+                "output": [{"type": "message", "content": [{
+                    "type": "output_text",
+                    "text": json.dumps(model_answer(self.spec), ensure_ascii=False),
+                }]}],
+                "usage": {"input_tokens": 280, "output_tokens": 130, "total_tokens": 410},
+            }
+
+        with patch("workflow.r5_review.select_images", return_value=[a, timed]):
+            result, usage = call_deepseek(
+                make_prompt(self.spec), self.video, self.root, "deepseek-flash",
+                "synthetic_key_not_real", fake_http)
+        self.assertEqual(json.loads(result)["decision"], "pass")
+        self.assertEqual(usage["total_tokens"], 410)
+        url, headers, payload = calls[0]
+        self.assertEqual(url, "https://api.deepseek.com/responses")
+        self.assertEqual(headers["Authorization"], "Bearer synthetic_key_not_real")
+        self.assertEqual(payload["model"], "deepseek-flash")
+        self.assertEqual(payload["reasoning"]["effort"], "none")
+        self.assertEqual(payload["text"]["format"]["type"], "json_object")
+        content = payload["input"][0]["content"]
+        self.assertEqual(len([x for x in content if x["type"] == "input_image"]), 2)
+        self.assertTrue(any("5.300s" in x.get("text", "") for x in content))
+        self.assertIn("没有直接观看 MP4", content[0]["text"])
+        self.assertTrue(all("data:image/" in x["image_url"] for x in content
+                            if x["type"] == "input_image"))
+
+    def test_deepseek_rejects_text_only_model_and_bad_provider_response(self):
+        with patch("workflow.r5_review.select_images") as image_loader:
+            with self.assertRaisesRegex(ValueError, "deepseek-flash"):
+                call_deepseek("json", self.video, self.root, "deepseek-v4-pro",
+                              "synthetic_key", lambda *args: {})
+            image_loader.assert_not_called()
+
+        with patch("workflow.r5_review.select_images", return_value=[]):
+            with self.assertRaisesRegex(ValueError, "requires verified"):
+                call_deepseek("json", self.video, self.root, "deepseek-flash",
+                              "synthetic_key", lambda *args: {})
+        image = self.root / "t00005300.png"
+        image.write_bytes(b"test image bytes")
+        with patch("workflow.r5_review.select_images", return_value=[image]):
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                call_deepseek("json", self.video, self.root, "deepseek-flash",
+                              "synthetic_key", lambda *args: {
+                                  "status": "incomplete", "output": []})
+            with self.assertRaisesRegex(ValueError, "No usable"):
+                call_deepseek("json", self.video, self.root, "deepseek-flash",
+                              "synthetic_key", lambda *args: {
+                                  "status": "completed", "output": []})
+
+    def test_deepseek_provider_key_selection_and_r5_off(self):
+        # No paid requests: CLI must reject before calling run_review when disabled.
+        args = [
+            "--artifact-root", "not-present", "--out", "not-present",
+            "--source-sha", "a" * 40, "--artifact-name", "demo",
+            "--run-id", "42", "--provider", "deepseek", "--model", "deepseek-flash",
+        ]
+        with patch.dict("os.environ", {"R5_ENABLED": "false"}, clear=True):
+            with patch("workflow.r5_review.run_review") as paid_call:
+                self.assertEqual(r5_main(args), 1)
+                paid_call.assert_not_called()
+
+        with patch.dict("os.environ", {"R5_ENABLED": "true",
+                                       "DEEPSEEK_API_KEY": "test_deepseek"}, clear=True):
+            with patch("workflow.r5_review.run_review") as paid_call:
+                self.assertEqual(r5_main(args), 0)
+                self.assertEqual(paid_call.call_args.args[-1], "test_deepseek")
+
+    def test_deepseek_workflow_provider_allow_list(self):
+        yaml = (ROOT / ".github/workflows/r5-visual-qa.yml").read_text()
+        self.assertIn("vars.R5_PROVIDER == 'deepseek'", yaml)
+        self.assertIn("secrets.DEEPSEEK_API_KEY", yaml)
+        self.assertIn("vars.R5_ENABLED == 'true'", yaml)
+
 
     def test_structural_validation_and_fail_closed(self):
         good = json.dumps(model_answer(self.spec), ensure_ascii=False)
