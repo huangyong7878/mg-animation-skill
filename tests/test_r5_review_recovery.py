@@ -95,7 +95,7 @@ class TestManualRecoveryAuthorization(unittest.TestCase):
         self.assertNotIn("r5_av_review.py \\", recovery)
         self.assertIn("r5_av_control.py --mode select-review", recovery)
         self.assertIn("r5_av_control.py --mode publish", recovery)
-        self.assertIn('if: steps.gate.outputs.should_run == \\'true\\'', recovery)
+        self.assertIn("steps.gate.outputs.should_run == 'true'", recovery)
 
     def test_recovered_report_rechecks_verified_media_and_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
