@@ -335,6 +335,11 @@ def run_review(artifact_root, out_dir, provider, model, source_sha,
     return report
 
 
+def is_r5_enabled(value):
+    """Require an exact affirmative opt-in; unset/false/typos are OFF."""
+    return value == "true"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifact-root", required=True)
@@ -347,6 +352,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     key_name = {"gemini": "GEMINI_API_KEY", "openai": "OPENAI_API_KEY"}[args.provider]
     try:
+        if not is_r5_enabled(os.environ.get("R5_ENABLED")):
+            raise ValueError("R5_ENABLED must be exactly 'true' to invoke paid visual QA")
         run_review(
             args.artifact_root, args.out, args.provider, args.model,
             args.source_sha, args.artifact_name, args.run_id,
