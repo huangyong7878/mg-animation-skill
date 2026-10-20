@@ -128,6 +128,21 @@ def comment_body(report, audit, repo, pr):
     return "\n".join(rows)[:13500]
 
 
+
+def preflight(event, repository, token, transport=None):
+    """Fail before any paid model call if PR is stale, forked or already commented."""
+    sha, run_id = safe_event(event, repository)
+    pr = associated_pr(repository, sha, token, transport)
+    current = api("GET", f"/repos/{repository}/pulls/{pr}", token, transport=transport)
+    if current.get("state") != "open" or current.get("head", {}).get("sha") != sha:
+        raise ValueError("PR HEAD changed before review; paid call suppressed")
+    marker = f"<!-- mg-r5 run:{run_id} sha:{sha} -->"
+    comments = api("GET", f"/repos/{repository}/issues/{pr}/comments?per_page=100",
+                   token, transport=transport)
+    already = any(marker in item.get("body", "") for item in comments)
+    return {"pr": pr, "sha": sha, "run_id": run_id, "should_run": not already}
+
+
 def publish(event, repository, token, report, audit, transport=None):
     if not token:
         raise ValueError("GITHUB_TOKEN missing")
@@ -158,15 +173,27 @@ def publish(event, repository, token, report, audit, transport=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--event", required=True)
-    parser.add_argument("--report", required=True)
-    parser.add_argument("--audit", required=True)
+    parser.add_argument("--report")
+    parser.add_argument("--audit")
+    parser.add_argument("--preflight", action="store_true")
     args = parser.parse_args(argv)
     try:
-        report = json.loads(Path(args.report).read_text(encoding="utf-8"))
-        audit = json.loads(Path(args.audit).read_text(encoding="utf-8"))
         event = json.loads(Path(args.event).read_text(encoding="utf-8"))
-        publish(event, os.environ["GITHUB_REPOSITORY"],
-                os.environ["GITHUB_TOKEN"], report, audit)
+        if args.preflight:
+            result = preflight(event, os.environ["GITHUB_REPOSITORY"],
+                               os.environ["GITHUB_TOKEN"])
+            print(f"R5 preflight: {result}")
+            if os.environ.get("GITHUB_OUTPUT"):
+                with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as target:
+                    target.write("should_run=" +
+                                 ("true" if result["should_run"] else "false") + "\n")
+        else:
+            if not args.report or not args.audit:
+                raise ValueError("Both --report and --audit are required for PR comment")
+            report = json.loads(Path(args.report).read_text(encoding="utf-8"))
+            audit = json.loads(Path(args.audit).read_text(encoding="utf-8"))
+            publish(event, os.environ["GITHUB_REPOSITORY"],
+                    os.environ["GITHUB_TOKEN"], report, audit)
     except (OSError, ValueError, KeyError, RuntimeError, TypeError,
             json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
