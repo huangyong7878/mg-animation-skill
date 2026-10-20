@@ -35,13 +35,21 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 演示视频用离线发音器生成的中文语音**很机械**，不代表 Skill 的最终配音质量。正式作品请优先测试 Edge TTS 或替换专业语音后端；切换后应重新提取音频时间戳。
 
+## 自动化第一阶段：GitHub Actions 直接渲染 Pilot 001
+
+现在有一条**真实渲染**而不是单纯跑单元测试的流程：[Pilot 001 自动渲染与制品交接说明](docs/PILOT_CI_AUTOMATION.md)。
+
+当 Pilot 001 的场景/动画原语在 PR 中变更时，Actions 自动生成无声 H.264 MP4、关键帧、QA 联系表、带 SHA256 的媒体清单，以及给独立强模型使用的 `qa_review.zip`，并作为保留 30 天的 Artifact 上传。它也支持 Actions 页面的 `workflow_dispatch` 手动触发。
+
+**尚未自动调用 Muse 或多模态审片模型**，未完成的人工 QA 决策始终为 pending；不自动审批或发布。
+
 ## R5 自动独立视觉 QA（可切换模型）
 
 已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini`、`openai` 或 `deepseek`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
 
 DeepSeek 视觉审查请使用 `R5_MODEL=deepseek-flash`，图片输入通过 Responses API；不直接传 MP4，连续运动证据不足时报告应为 `pending`。
 
-模型密钥必须在 GitHub Actions Secrets 配置，绝不能写入仓库。需要先合并真实渲染 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12) 和本 R5 PR，并配置服务商才能启用。详情见上述文档。
+模型密钥必须在 GitHub Actions Secrets 配置，绝不能写入仓库。真实渲染 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12) 已合并；自动审片需合并本 R5 PR，并配置服务商与 `R5_ENABLED=true` 后才能启用。详情见上述文档。
 
 ## 所有 AI 模型的统一入口：AGENTS.md
 
