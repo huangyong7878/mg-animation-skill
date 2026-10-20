@@ -108,12 +108,12 @@ GitHub Action 通过 \`workflow_run\` 配合 \`issues: write\` 完成评论，�
 
 ## 5. 模型替换与范围限制
 
-模型适配器位于 \`workflow/r5_review.py\`：
+模型适配器位于 \`workflow/r5_review.py\`。**OpenAI 与 DeepSeek 共享同一个 OpenAI Responses 协议实现**：共同使用 \`call_openai_compatible()\`、\`timed_image_content()\` 和 \`parse_responses_output()\`；\`call_openai()\` / \`call_deepseek()\` 只是薄包装。差异全部集中在 \`OPENAI_COMPATIBLE_PROVIDERS\` 配置中（Endpoint、输出 Token 上限、支持图片的模型白名单、服务商附加参数）。Gemini 使用原生视频的不同协议，因此仍独立实现。
 
 - \`gemini\`：Gemini \`generateContent\` REST，原生视频 + 时间证据，输出 JSON。
 - `openai`：OpenAI `responses` REST，图像时间证据，输出 JSON。
 - `deepseek`：DeepSeek `https://api.deepseek.com/responses` REST，**`deepseek-flash` 支持的图像输入**与时间证据、JSON 输出。此接口不原生上传 MP4，因此不保证能从有限图片判断全部连续运动；证据不足时 R5 必须给出 `pending`，不得冒称已经完整观看视频。
-- 新适配器：遵循函数约定 \`(prompt, video, evidence_root, model, api_key, transport) → (json_text, usage)\`，注册在 \`ADAPTERS\` 并提供对应 Secret；不要绕过 \`parse_model_report\`/PR SHA 校验。
+- 新增 OpenAI Responses 兼容服务商时，优先往 \`OPENAI_COMPATIBLE_PROVIDERS\` 增加配置，而不是复制编码、传输和解析实现；再用薄包装注册 \`ADAPTERS\` 和对应 Secret。真正不兼容的协议才单独实现；所有提供商均不可绕过 \`parse_model_report\`/PR SHA 门禁。
 
 **音轨不受影响。** 当前只审 Stage B 无声原型；Stage C/D 将继续使用原有 TTS、音画同步、字幕机制；为有声版本写 R5 接口需进一步扩展同步契约和可验证视听证据。
 
