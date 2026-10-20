@@ -43,15 +43,16 @@ Muse/DeepSeek 开发 PR (不可信代码)
 | 名称 | 取值 | 用途 |
 |---|---|---|
 | `R5_ENABLED` | `false` / `true`（默认关闭） | R5 的显式总开关，只有 `true` 才可能调用付费模型 |
-| \`R5_PROVIDER\` | \`gemini\` 或 \`openai\` | 选择适配器，之后可换 |
-| \`R5_MODEL\` | 对应账号可访问的模型 ID，比如 \`gemini-2.5-flash\` 或 \`gpt-4.1\` | 明确选择计费模型，不在代码中暗中升级 |
+| `R5_PROVIDER` | `gemini`、`openai` 或 `deepseek` | 三选一，审查模型可切换 |
+| `R5_MODEL` | `gemini-2.5-flash`、`gpt-4.1` 或 **`deepseek-flash`** | DeepSeek R5 请使用支持图片的 `deepseek-flash`，非 `deepseek-v4-pro` |
 
 在 **Secrets** 添加与你选择的服务商一致的一项：
 
 | 名称 | 用途 |
 |---|---|
 | \`GEMINI_API_KEY\` | Gemini API 认证；Gemini 能收到原生 MP4 + 重点帧 |
-| \`OPENAI_API_KEY\` | OpenAI Responses API 认证；OpenAI 收到视频连续抽帧/时间联系表 |
+| `OPENAI_API_KEY` | OpenAI Responses API 认证；OpenAI 收到视频连续抽帧/时间联系表 |
+| `DEEPSEEK_API_KEY` | DeepSeek Responses API 认证；DeepSeek Flash 收到带时间戳的抽样帧与联系表 |
 
 只需提供实际选择的服务商 Secret，**不要把密钥贴入 Issue、PR、代码、聊天记录或 Artifact**。为了比较两种模型，可之后切换 \`R5_PROVIDER\` 和 \`R5_MODEL\`；同一轮触发只调用一个配置的模型。
 
@@ -60,6 +61,22 @@ Muse/DeepSeek 开发 PR (不可信代码)
 若未配置 \`R5_PROVIDER\` 或值无效，Workflow 的 QA 作业会**跳过**；若提供商有效但模型名/Secret 缺失，会**失败并阻断评论**，不会伪造 pass。
 
 > 依赖关系：首先合并 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12)（自动渲染），再合并包含 R5 的 PR。因为 GitHub 要求 \`workflow_run\` 文件在默认分支才会自动触发，**本分支自身的绿色单元测试不等于已经发生了真实付费审片**。
+
+### DeepSeek R5 具体设置（使用 Repository 级别）
+
+仓库 **Settings → Secrets and variables → Actions → Variables**：
+
+- `R5_ENABLED = false`（配置完成、准备试运行后才改为 `true`）
+- `R5_PROVIDER = deepseek`
+- `R5_MODEL = deepseek-flash`
+
+仓库 **Settings → Secrets and variables → Actions → Secrets**：
+
+- `DEEPSEEK_API_KEY = <你的有效 DeepSeek API Key>`，绝不能写进仓库或粘贴到 PR。
+
+官方参考：[DeepSeek 图像理解](https://api-docs.deepseek.com/zh-cn/guides/vision/)、[Responses API](https://api-docs.deepseek.com/zh-cn/guides/responses_api/)、[定价](https://api-docs.deepseek.com/quick_start/pricing/)。**不支持把纯文本模型配置成视觉 R5；DeepSeek 官方目前只列出 Flash 支持图像，V4 Pro 不支持。**
+
+若 R4 实现者也采用 DeepSeek，R5 仍需与执行上下文隔离，并且最好抽样交叉使用其他提供商或人工复审，避免同模型对自身模式的盲区。
 
 ## 3. 将会发生什么？
 
@@ -94,7 +111,8 @@ GitHub Action 通过 \`workflow_run\` 配合 \`issues: write\` 完成评论，�
 模型适配器位于 \`workflow/r5_review.py\`：
 
 - \`gemini\`：Gemini \`generateContent\` REST，原生视频 + 时间证据，输出 JSON。
-- \`openai\`：OpenAI \`responses\` REST，图像时间证据，输出 JSON。
+- `openai`：OpenAI `responses` REST，图像时间证据，输出 JSON。
+- `deepseek`：DeepSeek `https://api.deepseek.com/responses` REST，**`deepseek-flash` 支持的图像输入**与时间证据、JSON 输出。此接口不原生上传 MP4，因此不保证能从有限图片判断全部连续运动；证据不足时 R5 必须给出 `pending`，不得冒称已经完整观看视频。
 - 新适配器：遵循函数约定 \`(prompt, video, evidence_root, model, api_key, transport) → (json_text, usage)\`，注册在 \`ADAPTERS\` 并提供对应 Secret；不要绕过 \`parse_model_report\`/PR SHA 校验。
 
 **音轨不受影响。** 当前只审 Stage B 无声原型；Stage C/D 将继续使用原有 TTS、音画同步、字幕机制；为有声版本写 R5 接口需进一步扩展同步契约和可验证视听证据。
