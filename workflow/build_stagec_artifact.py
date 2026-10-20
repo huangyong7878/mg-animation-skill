@@ -24,14 +24,19 @@ try:
     from scripts.primitives.orderflow import PILOT_EVENT_SECONDS
     from workflow.check_handoff import canonical_digest, validate_bundle
     from workflow.media_manifest import create_manifest, verify_manifest
+    from workflow.av_sync_contract import validate_av_cues
 except ModuleNotFoundError:
     from narrate import create_narration, RATE
     from scripts.primitives.orderflow import PILOT_EVENT_SECONDS
     from check_handoff import canonical_digest, validate_bundle
     from media_manifest import create_manifest, verify_manifest
+    from av_sync_contract import validate_av_cues
 
 SOURCE_PATHS = (
     "work/orders_pilot/stagec_narration.json",
+    "work/orders_pilot/stagec_av_cues.json",
+    "workflow/av_sync_contract.py",
+    "contracts/av_sync_cues.schema.json",
     "work/orders_pilot/scene.json",
     "scripts/primitives/orderflow.py",
     "scripts/primitives/__init__.py",
@@ -190,7 +195,13 @@ def build(spec_path, scene_path, plan_path, source_sha, artifact_root,
     spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+    cue_contract = json.loads(
+        (ROOT / "work/orders_pilot/stagec_av_cues.json").read_text(encoding="utf-8")
+    )
     segments = require_plan(spec, scene, plan)
+    # Fail before TTS/render if the director's narration/visual-event contract
+    # does not correspond to this exact renderer timeline and script.
+    validate_av_cues(spec, plan, PILOT_EVENT_SECONDS, cue_contract)
     for relative in SOURCE_PATHS:
         if not (ROOT / relative).is_file():
             raise ValueError(f"Missing source path {relative}")
@@ -212,6 +223,11 @@ def build(spec_path, scene_path, plan_path, source_sha, artifact_root,
     timing_data = json.loads(timing.read_text(encoding="utf-8"))
     measured = check_timing_files(plan, timing_data, wav, srt,
                                   float(scene["canvas"]["duration"]))
+    cue_report = validate_av_cues(
+        spec, plan, PILOT_EVENT_SECONDS, cue_contract, timings=timing_data)
+    (root / "av_sync_report.json").write_text(
+        json.dumps(cue_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
 
     log = ["Stage C draft test with offline eSpeak; does not replace formal narration."]
     run([sys.executable, "scripts/validate.py", scene_path], log)
@@ -240,6 +256,8 @@ def build(spec_path, scene_path, plan_path, source_sha, artifact_root,
              "detail": "eSpeak zh synthesized measured PCM, not an AI-generated/natural voice"},
             {"name": "timings_and_srt_validated", "result": "pass",
              "detail": f"Validated {measured['narrated_segments']} measured sentence timings, WAV length and SRT transcript"},
+            {"name": "narration_visual_event_cues", "result": "pass",
+             "detail": "R3 cue contract matched planned and measured TTS to R4 declared animation event times; does NOT establish pixel/auditory semantic QA"},
             {"name": "av_preview_probed", "result": "pass",
              "detail": "ffprobe confirmed H.264 + AAC, frame count, resolution and duration"},
         ],
@@ -255,6 +273,7 @@ def build(spec_path, scene_path, plan_path, source_sha, artifact_root,
         json.dumps(delivery, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (root / "build_log.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
     extras = ["media/timings.srt", "narration.txt", "director_spec.json",
+              "av_sync_report.json",
               "build_log.txt", *SOURCE_PATHS]
     manifest = create_manifest(
         spec, delivery, root, backend="actions",

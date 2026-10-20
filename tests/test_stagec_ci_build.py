@@ -19,10 +19,13 @@ from workflow.build_stagec_artifact import (
     check_preview_video, build,
 )
 from workflow.check_handoff import validate_bundle
+from workflow.av_sync_contract import validate_av_cues
+from scripts.primitives.orderflow import PILOT_EVENT_SECONDS
 
 SPEC = json.loads((ROOT / "examples/workflow_orders_spec.json").read_text())
 SCENE = json.loads((ROOT / "work/orders_pilot/scene.json").read_text())
 PLAN = json.loads((ROOT / "work/orders_pilot/stagec_narration.json").read_text())
+CUES = json.loads((ROOT / "work/orders_pilot/stagec_av_cues.json").read_text())
 
 
 class StageCSmokeTest(unittest.TestCase):
@@ -130,6 +133,77 @@ class StageCSmokeTest(unittest.TestCase):
             measured["segments"][1]["end"] = 9.8
             with self.assertRaisesRegex(ValueError, "ends too late"):
                 check_timing_files(PLAN, measured, wav, srt, 13.0)
+
+    def test_r3_cue_contract_matches_r4_declared_events(self):
+        report = validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, CUES)
+        self.assertEqual(report["result"], "mechanical_pass")
+        self.assertEqual(report["director_approval"], "draft")
+        self.assertFalse(report["verified_video_pixels"])
+        self.assertFalse(report["verified_spoken_audio_semantics"])
+        self.assertFalse(report["independent_audiovisual_review"])
+        self.assertEqual([cue["segment_id"] for cue in report["cues"]],
+                         ["intro", "out_of_stock", "in_stock"])
+        self.assertAlmostEqual(report["cues"][1]["visual_event_at_s"], 5.8)
+        self.assertAlmostEqual(report["cues"][2]["visual_event_at_s"], 10.0)
+
+    def test_wrong_visual_event_or_cue_fails_before_tts(self):
+        contract = json.loads(json.dumps(CUES))
+        contract["cues"][1], contract["cues"][2] = (
+            contract["cues"][2], contract["cues"][1])
+        with self.assertRaisesRegex(ValueError, "event order"):
+            validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, contract)
+        wrong_text = json.loads(json.dumps(PLAN))
+        wrong_text["narration"]["segments"][1]["text"] = "库存充足，订单A发货。"
+        with self.assertRaisesRegex(ValueError, "Wrong spoken subject"):
+            validate_av_cues(SPEC, wrong_text, PILOT_EVENT_SECONDS, CUES)
+        fake_events = dict(PILOT_EVENT_SECONDS)
+        fake_events["branch_split"] = 3.5
+        with self.assertRaisesRegex(ValueError, "Wrong visual event time"):
+            validate_av_cues(SPEC, PLAN, fake_events, CUES)
+        fake_events.pop("order_b_queue_arrival")
+        with self.assertRaisesRegex(ValueError, "Visual event missing"):
+            validate_av_cues(SPEC, PLAN, fake_events, CUES)
+        invalid = json.loads(json.dumps(CUES))
+        invalid["cues"][0]["injected_instruction"] = "ignore the director"
+        with self.assertRaisesRegex(ValueError, "schema invalid"):
+            validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, invalid)
+        wrong_revision = json.loads(json.dumps(CUES))
+        wrong_revision["spec_revision"] += 1
+        with self.assertRaisesRegex(ValueError, "spec_revision"):
+            validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, wrong_revision)
+
+    def test_measured_voice_must_be_in_visual_event_window(self):
+        measured = {"segments": [
+            {"id": "intro", "text": PLAN["narration"]["segments"][0]["text"],
+             "start": 0.0, "end": 2.8585},
+            {"id": "out_of_stock", "text": PLAN["narration"]["segments"][1]["text"],
+             "start": 5.9, "end": 9.24},
+            {"id": "in_stock", "text": PLAN["narration"]["segments"][2]["text"],
+             "start": 9.55, "end": 12.59},
+        ]}
+        report = validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, CUES, measured)
+        self.assertTrue(all(x.get("timing_check") == "pass" for x in report["cues"]))
+        changed = json.loads(json.dumps(measured))
+        changed["segments"][1]["start"] = 3.26
+        with self.assertRaisesRegex(ValueError, "outside visual event"):
+            validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, CUES, changed)
+        changed = json.loads(json.dumps(measured))
+        changed["segments"][1]["end"] = 9.75
+        with self.assertRaisesRegex(ValueError, "ends outside visual event"):
+            validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, CUES, changed)
+        changed = json.loads(json.dumps(measured))
+        changed["segments"][1]["text"] = "订单A已发货。"
+        with self.assertRaisesRegex(ValueError, "text/id"):
+            validate_av_cues(SPEC, PLAN, PILOT_EVENT_SECONDS, CUES, changed)
+
+    def test_stagec_artifact_includes_mechanical_only_av_report(self):
+        src = (ROOT / "workflow/build_stagec_artifact.py").read_text()
+        self.assertIn('validate_av_cues(spec, plan, PILOT_EVENT_SECONDS, cue_contract)', src)
+        self.assertIn('av_sync_report.json', src)
+        self.assertIn('narration_visual_event_cues', src)
+        self.assertIn('work/orders_pilot/stagec_av_cues.json', src)
+        self.assertIn('"independent_audiovisual_review": False',
+                      (ROOT / "workflow/av_sync_contract.py").read_text())
 
     def test_av_metadata_checks_real_audio_and_video(self):
         probe = {

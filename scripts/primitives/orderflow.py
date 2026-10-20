@@ -17,6 +17,8 @@ from . import register
 # Timeline markers shared with the Stage C narration validation.
 # These are real order-card motion waypoint times, not arbitrary TTS estimates.
 PILOT_EVENT_SECONDS = {
+    "order_a_appears": 1.0,
+    "order_b_appears": 1.2,
     "branch_split": 5.8,
     "order_b_queue_arrival": 8.4,
     "order_a_ship_arrival": 10.0,
@@ -235,8 +237,8 @@ def draw(draw, box, t, node, style, col, fonts):
     bx, by = _travel(b_keys, t)
 
     # draw B first (under), then A
-    card(bx, by, "B", _ORANGE, _ORANGE_DK, 1.2)
-    card(ax, ay, "A", _GREEN, _GREEN_DK, 1.0)
+    card(bx, by, "B", _ORANGE, _ORANGE_DK, PILOT_EVENT_SECONDS["order_b_appears"])
+    card(ax, ay, "A", _GREEN, _GREEN_DK, PILOT_EVENT_SECONDS["order_a_appears"])
 
     # QA-P1-001: stock decision node on top of cards
     draw_stock_diamond()

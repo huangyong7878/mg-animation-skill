@@ -42,6 +42,38 @@
 
 无论技术测试有多少项通过，仍然**不保证 TTS 人声自然，也不保证每一个音素与画面精确对齐**；这里只验证已定义的 Pilot 事件对应关系。
 
+## 防止再次发生：R3 ↔ R4 两层机器可检验的交接
+
+**R3 总导演 / 技术规格负责人** 增加独立的
+`work/orders_pilot/stagec_av_cues.json` **草稿音画提示契约**。
+它描述每段解说的 `segment_id` 对应哪个动画事件、起始允许偏移、
+最后结束期限、必须提及的对象与期望画面。
+结构约束位于 `contracts/av_sync_cues.schema.json`。
+R3 应在分镜审查时明确审核这个契约；当前契约仍是 `draft`，
+绝不代替人的批准或正式配音锁定。
+
+**R4 实现工程师** 要从动画程序的真实时间事件表
+`PILOT_EVENT_SECONDS` 中读取事件位置（包括 A/B 出现、
+5.8 s 分流、8.4 s B 抵达队列、10.0 s A 抵达发货）。
+通用门禁 `workflow/av_sync_contract.py` 在调用 TTS **之前**
+验证文案/事件 ID/起始偏移与导演契约一一对应；在生成语音**之后**
+使用实际 `timings.json` 核查每段准确开始、结束和无重叠。
+
+每次 Stage C Artifact 新增 `av_sync_report.json`，
+绑定源代码提交及 `media_manifest.json` 的 SHA256。
+报告使用 `result=mechanical_pass`，
+并明确 `verified_video_pixels=false`、
+`verified_spoken_audio_semantics=false`、
+`independent_audiovisual_review=false`。
+**不要把这个通过结果称作“R5 已观看视频、听懂音轨并验收通过”。**
+
+**R5 视听 QA** 仍应在未来 Stage D 的手动审核流程里
+独立获取完整有声 MP4、锁定的台词/时间轴、以及契约，
+逐段听读/看画面并给出可核对的发现与问题时间戳。
+目前的 R5 Gemini Workflow 只能为 Stage B 无声视频做视觉 QA。
+在真正实现并独立验证 Stage D 视听审查之前，不得自动将 Stage C
+机械门禁通过升格为音画质量 PASS。
+
 ## Actions 产出
 
 GitHub Actions 的 **Stage C Pilot Narration and AV Draft** 在无 Secrets 的 PR Runner 上调用离线 eSpeak 和 FFmpeg。Artifact 里包含：
@@ -50,7 +82,7 @@ GitHub Actions 的 **Stage C Pilot Narration and AV Draft** 在无 Secrets 的 P
 - `media/timings.json` 和 `media/timings.srt`
 - `media/stagec_av_preview.mp4`（13 秒、960×540、24 FPS、有 AAC 音轨）
 - `delivery.json`（stage=C、status=prototype）、`director_spec.json`、
-  `media_manifest.json`、`build_log.txt` 和源输入文件
+  `media_manifest.json`、`av_sync_report.json`、`build_log.txt` 和源输入文件
 
 **Pilot 001 Render and QA Artifact** 是另一条独立的真实 Stage B 无声视频构建，
 输出带 SHA256 的视频、关键帧及证据。两种制品不可混为同一个“已审片成片”。

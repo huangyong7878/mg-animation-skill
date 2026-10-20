@@ -5,6 +5,11 @@ on:
   pull_request:
     paths:
       - 'work/orders_pilot/stagec_narration.json'
+      - 'work/orders_pilot/stagec_av_cues.json'
+      - 'workflow/av_sync_contract.py'
+      - 'contracts/av_sync_cues.schema.json'
+      - 'scripts/primitives/orderflow.py'
+      - 'tests/test_stagec_ci_build.py'
       - 'work/orders_pilot/scene.json'
       - 'examples/workflow_orders_spec.json'
       - 'workflow/build_stagec_artifact.py'
