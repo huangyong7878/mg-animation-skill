@@ -38,6 +38,12 @@ jobs:
           python-version: '3.11'
       - name: Install trusted review dependencies
         run: python -m pip install 'jsonschema>=4.18,<5' 'Pillow>=10,<13'
+      - name: Preflight PR SHA and duplicate feedback before model billing
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python workflow/r5_pr_feedback.py --event "$GITHUB_EVENT_PATH" --preflight
       - name: Bind immutable source SHA and artifact name
         id: source
         env:
@@ -50,6 +56,7 @@ jobs:
           [[ "$SOURCE_RUN" =~ ^[1-9][0-9]*$ ]] || exit 1
           echo "artifact_name=mg-orders_two_routes-r1-ci-${SOURCE_RUN}-${SOURCE_SHA:0:12}" >> "$GITHUB_OUTPUT"
       - name: Download video, spec and manifest from exact render run
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ steps.source.outputs.artifact_name }}
@@ -58,6 +65,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/r5_input
       - name: Call configured visual model once, validate QA report
+        if: steps.gate.outputs.should_run == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -85,7 +93,7 @@ jobs:
             --delivery "$RUNNER_TEMP/r5_input/delivery.json" \
             --qa "$RUNNER_TEMP/r5_output/qa_report.json"
       - name: Store model QA and usage (30 days)
-        if: always()
+        if: always() && steps.gate.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: r5-review-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.head_sha }}
@@ -93,6 +101,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
       - name: Publish validated QA feedback to correct, still-open PR
+        if: steps.gate.outputs.should_run == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
