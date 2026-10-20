@@ -35,6 +35,12 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of json output/fina
 
 演示视频用离线发音器生成的中文语音**很机械**，不代表 Skill 的最终配音质量。正式作品请优先测试 Edge TTS 或替换专业语音后端；切换后应重新提取音频时间戳。
 
+## R5 自动独立视觉 QA（可切换模型）
+
+已提供 [R5 自动审核配置与安全说明](docs/R5_AUTOMATION.md)：可信 `workflow_run` 在真实 MP4 渲染后读取精确版本制品，使用 `R5_PROVIDER`（`gemini` 或 `openai`）和 `R5_MODEL` 调用对应 API，输出 `qa_report.json`、Token 使用量审计，并自动在仍对应源码 SHA 的 PR 发表评论。**只评论，不自动合并、不批准正式发布。**
+
+模型密钥必须在 GitHub Actions Secrets 配置，绝不能写入仓库。需要先合并真实渲染 [PR #12](https://github.com/huangyong7878/mg-animation-skill/pull/12) 和本 R5 PR，并配置服务商才能启用。详情见上述文档。
+
 ## 所有 AI 模型的统一入口：AGENTS.md
 
 无论由 ChatGPT、Claude、Gemini、Muse、DeepSeek 或 Codex 接手，请先阅读 **[AGENTS.md](AGENTS.md)**，选择 R0–R7 对应角色，再跳转至 [完整多模型操作手册](docs/MULTI_MODEL_PLAYBOOK.md)。该文件不是模型厂商专属指令；无法自动读取 AGENTS.md 的平台，需要明确发送“先读 AGENTS.md”或提供文件附件。
