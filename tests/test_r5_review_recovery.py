@@ -109,7 +109,10 @@ class TestManualRecoveryAuthorization(unittest.TestCase):
                 "stage": "C", "status": "prototype", "release_approved": False,
                 "implementation_commit": SHA, "source_run_id": 10001,
                 "source_artifact": SELECTION["source_artifact"],
-                "decision": "pass", "video_sha256": sha256(v),
+                "decision": "pass", "audio_evaluated": True,
+                "video_evaluated": True, "findings": [],
+                "summary": "Original model checked each source media segment.",
+                "video_sha256": sha256(v),
                 "audio_sha256": sha256(a),
                 "checks": [{"segment_id": "intro", "result": "pass"}],
             }
