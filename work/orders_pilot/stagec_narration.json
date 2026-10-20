@@ -22,5 +22,5 @@
     ]
   },
   "test_only": true,
-  "notes": "Stage C engineering smoke test. Explicit cues follow real orderflow animation markers: B reaches restock queue before A ships. Unapproved draft voice, NOT formal aligned narration or Stage D release."
+  "notes": "One-off end-to-end R5 Stage C integration fixture, 2026-10-20. Keep exact approved-for-testing Pilot cues and draft narration; produce real MP4+WAV+SHA256 artifact for independent manual/offline and optional ONE explicitly authorized Gemini visual+audio review. No automatic model invocation; not a Stage D release."
 }
