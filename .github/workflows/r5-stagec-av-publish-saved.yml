@@ -1,0 +1,111 @@
+name: R5 Stage C Publish Existing QA (no model calls)
+
+# Recovery for reviews already billed+archived but whose PR comment failed.
+# NEVER download/run PR code, NEVER call Gemini; only republish authenticated
+# saved report from the original GitHub Actions run.
+on:
+  workflow_dispatch:
+    inputs:
+      stagec_run_id:
+        description: "Original successful Stage C PR media Run ID"
+        required: true
+        type: string
+      reviewed_run_id:
+        description: "Existing R5 Stage C QA Run ID which archived report + audit"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: r5-stagec-publish-saved-${{ inputs.stagec_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish-saved:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install offline-only report verification tools
+        run: |
+          python -m pip install 'jsonschema>=4.18,<5' 'Pillow>=10,<13'
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Resolve authentic original Stage C PR render run
+        id: source
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_RUN_ID: ${{ inputs.stagec_run_id }}
+        run: |
+          python workflow/r5_av_control.py --mode select \
+            --run-id "$SOURCE_RUN_ID" \
+            --selection "$RUNNER_TEMP/stagec_recovery_selection.json"
+      - name: Skip already-published QA without new model calls
+        id: gate
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python workflow/r5_av_control.py --mode preflight \
+            --selection "$RUNNER_TEMP/stagec_recovery_selection.json"
+      - name: Authenticate prior manual R5 run, even if feedback step failed
+        if: steps.gate.outputs.should_run == 'true'
+        id: reviewed
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEWED_RUN_ID: ${{ inputs.reviewed_run_id }}
+        run: |
+          python workflow/r5_av_control.py --mode select-review \
+            --review-run-id "$REVIEWED_RUN_ID" \
+            --selection "$RUNNER_TEMP/stagec_recovery_selection.json"
+      - name: Download ORIGINAL source video and WAV for SHA check
+        if: steps.gate.outputs.should_run == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.source.outputs.source_artifact }}
+          run-id: ${{ steps.source.outputs.source_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/stagec_original_source
+      - name: Download ALREADY GENERATED R5 report and audit (zero token usage)
+        if: steps.gate.outputs.should_run == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.reviewed.outputs.review_artifact_name }}
+          run-id: ${{ steps.reviewed.outputs.review_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/r5_saved_report
+      - name: Validate stored QA against source media, then post exactly once
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python workflow/r5_av_control.py --mode publish \
+            --selection "$RUNNER_TEMP/stagec_recovery_selection.json" \
+            --artifact-root "$RUNNER_TEMP/stagec_original_source" \
+            --report "$RUNNER_TEMP/r5_saved_report/av_qa_report.json" \
+            --audit "$RUNNER_TEMP/r5_saved_report/av_r5_audit.json"
+      - name: Publish zero-billing recovery summary
+        if: success()
+        run: |
+          echo "### Existing Stage C R5 feedback recovery" >> "$GITHUB_STEP_SUMMARY"
+          echo "- NO Gemini secrets, network model calls or TTS were run." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source Run: ${{ inputs.stagec_run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Existing QA Run: ${{ inputs.reviewed_run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Comment: posted or previously present, subject to GitHub write permission." >> "$GITHUB_STEP_SUMMARY"
