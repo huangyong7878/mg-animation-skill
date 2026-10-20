@@ -20,6 +20,8 @@ except ModuleNotFoundError:
 RUN_RE = re.compile(r"^[1-9][0-9]{0,18}$")
 EXPECTED_PATH = ".github/workflows/stagec-audio-artifacts.yml"
 EXPECTED_NAME = "Stage C Pilot Narration and AV Draft"
+REVIEW_NAME = "R5 Independent Stage C Audiovisual QA"
+REVIEW_PATH = ".github/workflows/r5-stagec-av-qa.yml"
 
 
 def selected_run(repo, run_id, token, transport=None):
@@ -47,6 +49,68 @@ def selected_run(repo, run_id, token, transport=None):
         "pr": pr,
         "source_artifact": f"mg-orders-stagec-draft-{number}-{sha[:12]}",
     }
+
+
+def selected_saved_review(repo, reviewed_run_id, selection, token, transport=None):
+    """Authenticate previous R5 run before reading its stored QA artifact.
+
+    The previous R5 job may have failed *only after* the model succeeded
+    (PR comment 403), so a failed run is allowed; presence of a validated
+    report and matching hashes is checked again before publication.
+    """
+    number, sha, _ = validated_selection(selection)
+    if not isinstance(reviewed_run_id, str) or not RUN_RE.fullmatch(reviewed_run_id):
+        raise ValueError("Review run ID must be a positive decimal integer")
+    review_id = int(reviewed_run_id)
+    info = api("GET", f"/repos/{repo}/actions/runs/{review_id}",
+               token, transport=transport)
+    if (info.get("id") != review_id
+            or info.get("name") != REVIEW_NAME
+            or info.get("path", "").split("@", 1)[0] != REVIEW_PATH
+            or info.get("event") != "workflow_dispatch"
+            or info.get("status") != "completed"
+            or info.get("conclusion") not in ("success", "failure")
+            or info.get("head_branch") != "main"
+            or info.get("repository", {}).get("full_name", "").lower() != repo.lower()
+            or (info.get("head_repository") or {}).get("full_name", "").lower() != repo.lower()):
+        raise ValueError("Not a trusted completed main-branch Stage C R5 review run")
+    return {
+        "review_run_id": review_id,
+        "review_artifact_name": f"r5-stagec-av-{number}-{sha}",
+    }
+
+
+def validate_saved_evidence(selection, report, audit, artifact_root):
+    """Fail closed if review report does not belong to verified source bytes."""
+    number, sha, pr = validated_selection(selection)
+    if (audit.get("provider") != "gemini" or not audit.get("model")
+            or audit.get("pr") != pr
+            or audit.get("source_run_id") != number
+            or audit.get("implementation_commit") != sha
+            or audit.get("source_artifact") != selection["source_artifact"]
+            or report.get("implementation_commit") != sha
+            or report.get("source_run_id") != number
+            or report.get("source_artifact") != selection["source_artifact"]
+            or report.get("report_kind") != "r5_stagec_av"
+            or report.get("stage") != "C" or report.get("status") != "prototype"
+            or report.get("release_approved") is not False
+            or report.get("decision") != audit.get("decision")):
+        raise ValueError("Stored R5 review is not the selected Stage C source")
+    from workflow.r5_av_review import verify_inputs, validate_observations
+    from workflow.r5_review import sha256
+    spec, _, _, _, _, cue_report, video, audio = verify_inputs(artifact_root, selection)
+    if (report.get("video_sha256") != sha256(video)
+            or audit.get("video_sha256") != sha256(video)
+            or report.get("audio_sha256") != sha256(audio)
+            or audit.get("audio_sha256") != sha256(audio)):
+        raise ValueError("Stored R5 review does not match original MP4/WAV hashes")
+    keys = ("decision", "audio_evaluated", "video_evaluated",
+            "checks", "findings", "summary")
+    observations = {key: report[key] for key in keys}
+    validate_observations(
+        json.dumps(observations, ensure_ascii=False), cue_report,
+        float(spec["output"]["duration_s"]))
+    return True
 
 
 def assert_current_pr(repo, pr, sha, token, transport=None):
@@ -119,13 +183,15 @@ def make_comment(report, audit, repo):
     return "\n".join(lines)[:13000]
 
 
-def publish(repo, selection, report, audit, token, transport=None):
+def publish(repo, selection, report, audit, token, transport=None, artifact_root=None):
     number, sha, pr = validated_selection(selection)
     if audit.get("pr") != pr or audit.get("source_run_id") != number:
         raise ValueError("Audit does not refer to selected PR and source run")
     fresh = selected_run(repo, str(number), token, transport)
     if fresh != selection:
         raise ValueError("PR/run changed while the review was executing")
+    if artifact_root is not None:
+        validate_saved_evidence(selection, report, audit, artifact_root)
     body = make_comment(report, audit, repo)
     existing = api("GET", f"/repos/{repo}/issues/{pr}/comments?per_page=100",
                    token, transport=transport)
@@ -137,8 +203,10 @@ def publish(repo, selection, report, audit, token, transport=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["select", "preflight", "publish"], required=True)
+    parser.add_argument("--mode", choices=["select", "preflight", "publish", "select-review"], required=True)
     parser.add_argument("--run-id")
+    parser.add_argument("--review-run-id")
+    parser.add_argument("--artifact-root")
     parser.add_argument("--selection", required=True)
     parser.add_argument("--report")
     parser.add_argument("--audit")
@@ -159,7 +227,14 @@ def main(argv=None):
             print(f"Selected Stage C build #{selection['source_run_id']} on open PR #{selection['pr']}")
         else:
             selection = json.loads(path.read_text(encoding="utf-8"))
-            if args.mode == "preflight":
+            if args.mode == "select-review":
+                data = selected_saved_review(repo, args.review_run_id, selection, token)
+                if os.environ.get("GITHUB_OUTPUT"):
+                    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                        for key, value in data.items():
+                            output.write(f"{key}={value}\n")
+                print("Authenticated previous R5 report artifact:", data)
+            elif args.mode == "preflight":
                 decision = preflight(repo, selection, token)
                 if os.environ.get("GITHUB_OUTPUT"):
                     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
@@ -170,7 +245,8 @@ def main(argv=None):
                     raise ValueError("Missing validated report/audit")
                 report = json.loads(Path(args.report).read_text(encoding="utf-8"))
                 audit = json.loads(Path(args.audit).read_text(encoding="utf-8"))
-                answer = publish(repo, selection, report, audit, token)
+                answer = publish(repo, selection, report, audit, token,
+                                 artifact_root=args.artifact_root)
                 print("PR AV QA feedback:", "already posted" if answer is None else "posted")
     except (ValueError, KeyError, OSError, RuntimeError, TypeError, json.JSONDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

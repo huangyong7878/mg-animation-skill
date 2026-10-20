@@ -93,6 +93,30 @@ python workflow/orchestrator.py release-check \
 超过 9 MiB MP4、4 MiB WAV 或 21 MiB 总请求体则拒绝。
 付费审核完成后不自动合并 PR、不自动锁定解说稿、不批准 Stage D 发布。
 
+## Gemini 已完成但 PR 评论遇到 403 的恢复流程
+
+**不要重新运行 Gemini 审核来补发评论。** 已付费的审核可能已经生成
+`av_qa_report.json` 和 `av_r5_audit.json`，只是最后一步 PR 评论失败。
+
+1. 从失败的 R5 Run 下载并保存已上传的审核报告和用量审计。
+2. 新的审核工作流同时声明 `issues: write` 与
+   `pull-requests: write`，修复 PR 评论权限组合；
+   如果仍是 403，检查仓库 Settings → Actions → General
+   的工作流权限以及组织/仓库 Ruleset 限制。
+3. 使用 **R5 Stage C Publish Existing QA (no model calls)** 工作流，
+   手动选择主分支并填写原 `stagec_run_id` 和已保存报告的
+   `reviewed_run_id`。该流程只下载旧报告和原视频/WAV、
+   复核 SHA256/PR HEAD 并尝试补发，不注入 `GEMINI_API_KEY`，
+   **不会再次调用模型、不会产生新增 Gemini Token**。
+4. 如果审核评论已经成功发布，恢复流程会检查唯一标记并跳过。
+   如果 GitHub 权限仍不允许自动评论，可使用授权人的 GitHub
+   账户手动发布已核实的报告并附上原审核 Run 链接，不应伪称
+   GitHub Actions 自动评论成功。
+
+2026-10-20，R5 Run `39407922464` 在 Gemini 调用成功、
+审核制品归档成功后，向 PR #18 评论时被 GitHub HTTP 403 拒绝。
+这不是模型审片失败；可能已经产生真实用量，不能直接重复调用。
+
 ## 文件
 
 - `.github/workflows/r5-stagec-av-qa.yml`：手动选 Run / 双开关
