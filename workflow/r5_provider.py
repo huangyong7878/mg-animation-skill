@@ -79,7 +79,7 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     from jsonschema import Draft202012Validator
     snippet = observations.strip()
     if snippet.startswith("```"):
-        snippet = snippet.split("\\n", 1)[-1].rsplit("```", 1)[0].strip()
+        snippet = snippet.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     try:
         parsed = json.loads(snippet)
     except (ValueError, TypeError):
@@ -113,6 +113,14 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
         c["result"] = "needs_review"
         c["evidence"] = "Still requires full independent R5 review; see r5_deepseek/observations.md"
     write_json(dest / "qa_report_PENDING.json", qa)
+    # Generate a non-authoritative R4 task from structured visual issues.
+    # This leaves the R0 review state at pending and cannot issue a QA pass.
+    rework_draft = None
+    candidate_file = dest / "findings_candidate.json"
+    if candidate_file.exists() and read_json(candidate_file)["findings"]:
+        from workflow.r5_rework import prepare_rework
+        rework_draft = prepare_rework(workdir, candidate_file, artifact_root)
     return {"status": "pending", "observations": str(dest / "observations.md"),
             "qa_draft": str(dest / "qa_report_PENDING.json"),
-            "evidence": str(dest / "evidence.json"), "usage": evidence["usage"]}
+            "evidence": str(dest / "evidence.json"), "usage": evidence["usage"],
+            "rework_draft": rework_draft}
