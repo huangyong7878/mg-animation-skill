@@ -326,6 +326,14 @@ function renderFindings(){
  const origin=document.createElement("p");
  origin.textContent="证据范围："+run.scope+" · 实现 SHA："+run.source_sha+" · 视频 SHA256："+run.video_sha256;
  reworkFindings.append(origin);
+ const recommended=run.recommended_files||[];
+ const editable=document.getElementById("rework-allowed-files");
+ editable.value=recommended.join("\\n");
+ const hint=document.createElement("p");
+ hint.textContent=recommended.length?
+  "已根据项目策略推荐 "+recommended.length+" 个可修改文件。请核对后批准；不得扩大授权。":
+  "此项目尚无已配置的源码推荐策略，请先配置项目策略，不要盲目授权。";
+ reworkFindings.append(hint);
  for(const finding of run.findings){
    const box=document.createElement("div");box.className="item";
    const label=document.createElement("label");
