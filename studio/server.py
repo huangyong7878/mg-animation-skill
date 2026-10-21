@@ -56,6 +56,17 @@ def create_handler(repo, token):
                 job["status"] = "failed"
                 job["output"] = str(exc)
 
+    r4 = {"status": "idle", "output": "", "result": None}
+    def run_r4():
+        try:
+            from studio.r4_runner import execute
+            result = execute(repo, repo / "work/r4_inbox/pilot001_v3/assignment.json")
+            with job_lock:
+                r4.update(status=result["status"], output=result["output"], result=result)
+        except Exception as exc:
+            with job_lock:
+                r4.update(status="failed", output=type(exc).__name__ + ": " + str(exc))
+
     class Handler(BaseHTTPRequestHandler):
         def _reply(self, status, body, content_type="application/json; charset=utf-8"):
             data = body.encode("utf-8") if isinstance(body, str) else body
@@ -89,6 +100,9 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/r4":
+                with job_lock:
+                    return self._json(200, dict(r4))
             if path == "/api/codex-probe":
                 with job_lock:
                     return self._json(200, {**job,
@@ -101,7 +115,9 @@ def create_handler(repo, token):
         def do_POST(self):
             if not self._origin_ok() or self.headers.get("X-MG-CSRF") != token:
                 return self._json(403, {"error": "forbidden"})
-            if urlparse(self.path).path != "/api/codex-probe":
+            path = urlparse(self.path).path
+            if path not in ("/api/codex-probe", "/api/r4/start"):
+                return self._json(404, {"error": "not found"})
                 return self._json(404, {"error": "not found"})
             try:
                 size = int(self.headers.get("Content-Length", "0"))
@@ -110,6 +126,20 @@ def create_handler(repo, token):
             if size < 0 or size > MAX_BODY:
                 return self._json(413, {"error": "request too large"})
             self.rfile.read(size)
+            if path == "/api/r4/start":
+                if not _which("codex"):
+                    return self._json(422, {"error": "Codex CLI not found"})
+                from studio.r4_runner import validate_assignment
+                try:
+                    validate_assignment(repo, repo / "work/r4_inbox/pilot001_v3/assignment.json")
+                except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+                    return self._json(422, {"error": str(exc)})
+                with job_lock:
+                    if r4["status"] != "idle":
+                        return self._json(409, {"error": "R4 already started; inspect existing result"})
+                    r4.update(status="running", output="Starting isolated worktree…")
+                threading.Thread(target=run_r4, daemon=True).start()
+                return self._json(202, {"status": "running"})
             if not _which("codex"):
                 return self._json(422, {"error": "Codex CLI not found"})
             with job_lock:
