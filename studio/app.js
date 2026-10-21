@@ -256,3 +256,44 @@ r5Submit.addEventListener("click",async()=>{
  }catch(e){r5Output.textContent=String(e);}
 });
 loadR5Deliveries();
+
+const settingsOutput=document.getElementById("settings-output");
+async function writeSettings(path,payload){
+ const response=await fetch(path,{method:"POST",
+   headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},
+   body:JSON.stringify(payload)});
+ const result=await response.json();
+ if(!response.ok)throw Error(result.error||"无法保存");
+ return result;
+}
+async function refreshSettings(){
+ const s=await fetch("/api/settings").then(r=>r.json());
+ document.getElementById("settings-r5-enabled").checked=s.r5_enabled;
+ document.getElementById("proxy-mode").value=s.proxy_mode;
+ document.getElementById("proxy-url").value=s.proxy_url;
+ settingsOutput.textContent=s.deepseek_key_configured?"DeepSeek 密钥已配置（Keychain）":"DeepSeek 密钥尚未配置";
+}
+document.getElementById("save-settings").addEventListener("click",async()=>{
+ try{
+  const mode=document.getElementById("proxy-mode").value;
+  await writeSettings("/api/settings",{
+   r5_enabled:document.getElementById("settings-r5-enabled").checked,
+   proxy_mode:mode,
+   proxy_url:mode==="custom"?document.getElementById("proxy-url").value.trim():""
+  });
+  settingsOutput.textContent="设置已保存";r5Ready=false;updateR5Button();
+ }catch(e){settingsOutput.textContent=String(e);}
+});
+document.getElementById("save-key").addEventListener("click",async()=>{
+ const el=document.getElementById("deepseek-key");
+ try{
+  await writeSettings("/api/settings/key",{api_key:el.value});
+  el.value="";await refreshSettings();
+ }catch(e){el.value="";settingsOutput.textContent=String(e);}
+});
+document.getElementById("delete-key").addEventListener("click",async()=>{
+ if(!confirm("确认删除 MG Studio 的 DeepSeek API Key？"))return;
+ try{await writeSettings("/api/settings/key/delete",{});await refreshSettings();}
+ catch(e){settingsOutput.textContent=String(e);}
+});
+refreshSettings().catch(e=>settingsOutput.textContent=String(e));
