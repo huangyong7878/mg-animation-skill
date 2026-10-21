@@ -47,7 +47,9 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     parts = [{"type": "text", "text": (
         "你是独立 R5 视觉审核员。下面是按时间排列的抽样帧，不是视频或音频。"
         "根据真实画面评价颜色身份、分支、节点、可读性；按 P0/P1/P2 给出问题、时间、证据。"
-        "不得声称听过音频或检查了全部连续运动。只输出中文观察意见，不要生成 PASS。"
+        "不得声称听过音频或检查了全部连续运动。不要生成 PASS。"
+        "只输出 JSON 对象，包含 findings 数组；每项必须有 id, severity(P0/P1/P2), shot_id, expected, observed, fix_request, evidence，以及可选 timestamp_s。"
+        "每个问题必须有真实可观察帧证据；没有问题则 findings 为空数组。不要编造证据。"
         "\\nDirector spec: " + json.dumps(spec, ensure_ascii=False) +
         "\\nVisual checks: " + json.dumps(sorted(required_checks(spec)), ensure_ascii=False) +
         "\\nFrames: " + str(len(frames)) + " sampled at 2 frames/sec."
@@ -74,6 +76,28 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     if not isinstance(observations, str) or not observations.strip():
         raise ValueError("Empty model observations")
     (dest / "observations.md").write_text(observations, encoding="utf-8")
+    # The provider is never authoritative. Parse structured findings as a
+    # candidate only; preserve raw text if the model does not return valid JSON.
+    from jsonschema import Draft202012Validator
+    snippet = observations.strip()
+    if snippet.startswith("```"):
+        snippet = snippet.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        parsed = json.loads(snippet)
+    except (ValueError, TypeError):
+        parsed = None
+    if isinstance(parsed, dict) and isinstance(parsed.get("findings"), list):
+        proposed = {
+            "schema_version": "1.0", "scope": "sampled_frames_only",
+            "spec_sha256": state["spec_sha256"],
+            "implementation_commit": delivery["implementation_commit"],
+            "video_sha256": sha(video), "findings": parsed["findings"],
+        }
+        from workflow.r5_rework import SCHEMA
+        schema = read_json(SCHEMA)
+        if Draft202012Validator(schema).is_valid(proposed):
+            write_json(dest / "findings_candidate.json", proposed)
+
     evidence = {"provider": "deepseek", "model": model, "scope": "sampled_frames_only",
                 "sampled_frames": len(frames), "video_sha256": sha(video),
                 "implementation_commit": delivery["implementation_commit"],
@@ -91,6 +115,14 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
         c["result"] = "needs_review"
         c["evidence"] = "Still requires full independent R5 review; see r5_deepseek/observations.md"
     write_json(dest / "qa_report_PENDING.json", qa)
+    # Generate a non-authoritative R4 task from structured visual issues.
+    # This leaves the R0 review state at pending and cannot issue a QA pass.
+    rework_draft = None
+    candidate_file = dest / "findings_candidate.json"
+    if candidate_file.exists() and read_json(candidate_file)["findings"]:
+        from workflow.r5_rework import prepare_rework
+        rework_draft = prepare_rework(workdir, candidate_file, artifact_root)
     return {"status": "pending", "observations": str(dest / "observations.md"),
             "qa_draft": str(dest / "qa_report_PENDING.json"),
-            "evidence": str(dest / "evidence.json"), "usage": evidence["usage"]}
+            "evidence": str(dest / "evidence.json"), "usage": evidence["usage"],
+            "rework_draft": rework_draft}
