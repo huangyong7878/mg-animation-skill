@@ -18,5 +18,11 @@ small{color:#91a6c0}@media(max-width:680px){main{grid-template-columns:1fr}}
 <section><h2>R0 工作区</h2><div id="workspaces">读取中…</div></section>
 <section><h2>R4 · Codex</h2><p id="codex">检测中…</p><button id="probe" type="button">运行 Codex 只读测试</button><pre id="probe-output"></pre></section>
 <section class="wide"><h2>R4 · 已批准任务</h2><p>从 R0 已派发且符合执行契约的任务中选择一项。Codex 将在独立 worktree 中编辑源码，不会自动提交、合并或发布。</p><p><label for="task-select">任务</label> <select id="task-select"><option value="">读取任务中…</option></select></p><label><input id="confirm-r4" type="checkbox"> 我确认启动本地 Codex 执行，允许消耗模型配额，并保留人工代码复查</label><p><button id="run-r4" type="button">启动 R4 视觉返工</button></p><pre id="r4-output"></pre></section>
-<section class="wide"><h2>最近 R4 任务</h2><div id="job-history">读取中…</div><p><button id="refresh-history" type="button">刷新记录</button></p></section><section class="wide"><h2>后续版本</h2><p>API Key 安全存储、R2/R3 角色配置、R4 受控代码修改、R5 模型审核、视频预览与审批操作将在完成权限和任务持久化后逐步启用。</p></section>
+<section class="wide"><h2>最近 R4 任务</h2><div id="job-history">读取中…</div><p><button id="refresh-history" type="button">刷新记录</button></p></section><section class="wide"><h2>Stage D · 正式有声交付</h2>
+<p>先检查正式双锁、音频、时间轴与当前源码版本。只有校验全部通过，才能生成新的不可覆盖交付目录。该操作不会签发 R5 或发布。</p>
+<button type="button" id="delivery-check">检查交付条件</button>
+<label style="display:block;margin:12px 0"><input type="checkbox" id="delivery-confirm"> 我确认只生成待审核成片，不批准 R5/R7，且可能占用本机计算资源</label>
+<button type="button" id="delivery-build" disabled>生成 Stage D 成片</button>
+<pre id="delivery-output"></pre></section>
+<section class="wide"><h2>后续版本</h2><p>API Key 安全存储、R2/R3 角色配置、R4 受控代码修改、R5 模型审核、视频预览与审批操作将在完成权限和任务持久化后逐步启用。</p></section>
 </main><script src="/app.js"></script></body></html>
