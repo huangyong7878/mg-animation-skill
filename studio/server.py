@@ -57,10 +57,22 @@ def create_handler(repo, token):
                 job["output"] = str(exc)
 
     r4 = {"status": "idle", "output": "", "result": None}
+    def available_tasks():
+        from r4_runner import validate_assignment
+        tasks = []
+        for p in sorted((repo / "work/r4_inbox").glob("*/assignment.json")):
+            try:
+                task = validate_assignment(repo, p)
+                tasks.append({"id": p.parent.name, "project": task["project_id"],
+                              "findings": len(task["findings"])})
+            except (ValueError, OSError, subprocess.CalledProcessError):
+                continue
+        return tasks
+    active_task = {"path": None}
     def run_r4():
         try:
             from r4_runner import execute
-            result = execute(repo, repo / "work/r4_inbox/pilot001_v3/assignment.json")
+            result = execute(repo, active_task["path"])
             with job_lock:
                 r4.update(status=result["status"], output=result["output"], result=result)
         except Exception as exc:
@@ -100,6 +112,8 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/r4/tasks":
+                return self._json(200, {"tasks": available_tasks()})
             if path == "/api/r4":
                 with job_lock:
                     return self._json(200, dict(r4))
@@ -125,18 +139,24 @@ def create_handler(repo, token):
                 return self._json(400, {"error": "invalid request size"})
             if size < 0 or size > MAX_BODY:
                 return self._json(413, {"error": "request too large"})
-            self.rfile.read(size)
+            self._request_body = self.rfile.read(size)
             if path == "/api/r4/start":
                 if not _which("codex"):
                     return self._json(422, {"error": "Codex CLI not found"})
                 from r4_runner import validate_assignment
                 try:
-                    validate_assignment(repo, repo / "work/r4_inbox/pilot001_v3/assignment.json")
+                    supplied = json.loads(self._request_body.decode("utf-8"))
+                    job_id = supplied["task_id"]
+                    if not isinstance(job_id, str) or not job_id or not all(c.isalnum() or c in "-_" for c in job_id):
+                        raise ValueError("Invalid task ID")
+                    path_to_task = repo / "work/r4_inbox" / job_id / "assignment.json"
+                    validate_assignment(repo, path_to_task)
                 except (ValueError, OSError, subprocess.CalledProcessError) as exc:
                     return self._json(422, {"error": str(exc)})
                 with job_lock:
                     if r4["status"] != "idle":
                         return self._json(409, {"error": "R4 already started; inspect existing result"})
+                    active_task["path"] = path_to_task
                     r4.update(status="running", output="Starting isolated worktree…")
                 threading.Thread(target=run_r4, daemon=True).start()
                 return self._json(202, {"status": "running"})

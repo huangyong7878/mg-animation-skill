@@ -469,6 +469,7 @@ def build_parser():
     p.add_argument("--artifact-root", required=True)
     p.add_argument("--approve-id", action="append", dest="selected_ids", required=True)
     p.add_argument("--approved-by", required=True)
+    p.add_argument("--allow-file", action="append", dest="allowed_files", required=True)
     p.add_argument("--repo", help="Optional GitHub issue dispatch (writes remotely)")
     p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("record-qa")
@@ -522,7 +523,8 @@ def main(argv=None):
             from workflow.r4_dispatch import dispatch
             result = dispatch(args.workdir, selected_ids=args.selected_ids,
                               approved_by=args.approved_by, inbox=args.inbox,
-                              artifact_root=args.artifact_root, repository=args.repo, dry_run=args.dry_run)
+                              artifact_root=args.artifact_root, repository=args.repo, dry_run=args.dry_run,
+                              allowed_files=args.allowed_files)
         elif args.command == "record-qa":
             if args.max_attempts < 1:
                 parser.error("--max-attempts must be positive")

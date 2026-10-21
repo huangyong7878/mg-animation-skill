@@ -33,10 +33,12 @@ document.getElementById("run-r4").addEventListener("click",async()=>{
  const checkbox=document.getElementById("confirm-r4");
  const out=document.getElementById("r4-output");
  if(!checkbox.checked){out.textContent="请先确认返工执行范围和可能的模型用量。";return;}
+ const selected=document.getElementById("task-select").value;
+ if(!selected){out.textContent="没有可执行任务；请由 R0 使用新版契约重新派发。";return;}
  const btn=document.getElementById("run-r4");
  btn.disabled=true;
  try{
-  const resp=await fetch("/api/r4/start",{method:"POST",headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},body:"{}"});
+  const resp=await fetch("/api/r4/start",{method:"POST",headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},body:JSON.stringify({task_id:selected})});
   const result=await resp.json();
   if(!resp.ok){out.textContent=result.error||JSON.stringify(result);btn.disabled=false;return;}
   const poll=async()=>{
@@ -50,3 +52,19 @@ document.getElementById("run-r4").addEventListener("click",async()=>{
   poll();
  }catch(e){out.textContent=String(e);}
 });
+
+async function loadTasks(){
+ const select=document.getElementById("task-select");
+ try{
+  const result=await fetch("/api/r4/tasks").then(r=>r.json());
+  select.replaceChildren();
+  for(const task of result.tasks){
+    const opt=document.createElement("option");
+    opt.value=task.id;
+    opt.textContent=task.project+" / "+task.id+" ("+task.findings+" 项)";
+    select.append(opt);
+  }
+  if(!result.tasks.length){const opt=document.createElement("option");opt.textContent="暂无新版契约的可执行任务";opt.value="";select.append(opt);}
+ }catch(e){select.replaceChildren();select.textContent="加载任务失败";}
+}
+loadTasks();
