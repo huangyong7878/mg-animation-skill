@@ -167,6 +167,9 @@ def create_handler(repo, token):
                     return self._json(200, review_preflight(repo,path.split("/")[-1]))
                 except (ValueError, OSError, KeyError) as exc:
                     return self._json(422, {"error":str(exc)})
+            if path == "/api/r5/rework-candidates":
+                from studio.rework_approval import candidates
+                return self._json(200, {"runs": candidates(repo)})
             if path == "/api/r5/history":
                 try:
                     from studio.r5_dashboard import review_history
@@ -250,7 +253,7 @@ def create_handler(repo, token):
             if not self._origin_ok() or self.headers.get("X-MG-CSRF") != token:
                 return self._json(403, {"error": "forbidden"})
             path = urlparse(self.path).path
-            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build", "/api/r5/submit", "/api/settings", "/api/settings/key", "/api/settings/key/delete"):
+            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build", "/api/r5/submit", "/api/settings", "/api/settings/key", "/api/settings/key/delete", "/api/r5/dispatch-rework"):
                 return self._json(404, {"error": "not found"})
             try:
                 size = int(self.headers.get("Content-Length", "0"))
@@ -259,6 +262,18 @@ def create_handler(repo, token):
             if size < 0 or size > MAX_BODY:
                 return self._json(413, {"error": "request too large"})
             self._request_body = self.rfile.read(size)
+            if path == "/api/r5/dispatch-rework":
+                from studio.rework_approval import approve
+                try:
+                    req=json.loads(self._request_body.decode("utf-8"))
+                    if req.get("confirm_rework_approval") is not True:
+                        raise ValueError("Explicit rework approval is required")
+                    result=approve(repo, run_id=req["run_id"],
+                        selected_ids=req["selected_ids"],allowed_files=req["allowed_files"],
+                        approved_by="Project owner", inbox_id=req["inbox_id"])
+                    return self._json(200, result)
+                except (ValueError,KeyError,TypeError,OSError) as exc:
+                    return self._json(422, {"error":str(exc)[:350]})
             if path.startswith("/api/settings"):
                 from studio import settings
                 try:

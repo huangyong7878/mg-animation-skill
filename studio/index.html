@@ -52,5 +52,17 @@ button:disabled{opacity:.5;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:an
 <label><input type="checkbox" id="r5-paid-confirm"> 我明确授权本次 DeepSeek API 付费抽帧审核；结果不代表完整 R5 PASS 或 R7 发布批准</label>
 <p><button id="r5-submit" type="button" disabled>提交 DeepSeek 审核</button></p>
 <pre id="r5-submit-output"></pre></section>
+<section class="wide"><h2>R5 → R0 · 返工审批</h2>
+<p>审阅 DeepSeek 抽帧提出的候选问题；仅勾选证据已人工核对、确实需要修复的项目。批准后 R0 生成新版任务，不会自动启动 Codex、锁定任何配音或发布。</p>
+<button type="button" id="rework-refresh">刷新候选缺陷</button>
+<label for="rework-run">审核记录</label> <select id="rework-run"><option value="">读取中…</option></select>
+<div id="rework-findings"></div>
+<label for="rework-allowed-files">允许修改的源码（每行一个路径）</label>
+<textarea id="rework-allowed-files" rows="2" style="width:100%" placeholder="scripts/primitives/orderflow.py"></textarea>
+<label for="rework-inbox-id">新任务名称</label>
+<input id="rework-inbox-id" placeholder="pilot001_rework_reviewed">
+<label style="display:block;margin:10px 0"><input id="rework-confirm" type="checkbox"> 我已人工核对所选缺陷及画面证据，批准这些视觉修复任务派发给 R4（不批准执行或发布）</label>
+<button id="rework-dispatch" type="button">批准并派发给 R4</button>
+<pre id="rework-output"></pre></section>
 <section class="wide"><h2>后续版本</h2><p>API Key 安全存储、R2/R3 角色配置、R4 受控代码修改、R5 模型审核、视频预览与审批操作将在完成权限和任务持久化后逐步启用。</p></section>
 </main><script src="/app.js"></script></body></html>
