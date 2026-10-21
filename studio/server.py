@@ -2,6 +2,7 @@
 import argparse
 import json
 import secrets
+import time
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -34,6 +35,27 @@ def _which(name):
     return which(name)
 
 def create_handler(repo, token):
+    job = {"status": "idle", "output": "", "started": 0}
+    job_lock = threading.Lock()
+
+    def run_probe():
+        try:
+            proc = subprocess.run(
+                ["codex", "exec", "--sandbox", "read-only",
+                 "Answer only: 测试成功。 Do not read or change files."],
+                cwd=repo, capture_output=True, text=True, timeout=360, check=False)
+            with job_lock:
+                job["status"] = "completed" if proc.returncode == 0 else "failed"
+                job["output"] = (proc.stdout + "\\n" + proc.stderr)[-8000:]
+        except subprocess.TimeoutExpired as exc:
+            with job_lock:
+                job["status"] = "timed_out"
+                job["output"] = "Codex connection still unavailable after 360s."
+        except OSError as exc:
+            with job_lock:
+                job["status"] = "failed"
+                job["output"] = str(exc)
+
     class Handler(BaseHTTPRequestHandler):
         def _reply(self, status, body, content_type="application/json; charset=utf-8"):
             data = body.encode("utf-8") if isinstance(body, str) else body
@@ -67,6 +89,11 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/codex-probe":
+                with job_lock:
+                    return self._json(200, {**job,
+                        "elapsed_seconds": round(time.monotonic() - job["started"], 1)
+                        if job["status"] == "running" else 0})
             if path == "/api/csrf":
                 return self._json(200, {"token": token})
             return self._json(404, {"error": "not found"})
@@ -85,17 +112,12 @@ def create_handler(repo, token):
             self.rfile.read(size)
             if not _which("codex"):
                 return self._json(422, {"error": "Codex CLI not found"})
-            # Fixed, read-only prompt; no arbitrary commands, no model-chosen permissions.
-            try:
-                proc = subprocess.run(
-                    ["codex", "exec", "--sandbox", "read-only",
-                     "Read README.md and summarize the repository in three sentences. Do not edit files."],
-                    cwd=repo, capture_output=True, text=True, timeout=120, check=False)
-                return self._json(200, {"ok": proc.returncode == 0,
-                    "returncode": proc.returncode,
-                    "output": (proc.stdout + "\n" + proc.stderr)[-5000:]})
-            except subprocess.TimeoutExpired:
-                return self._json(504, {"error": "Codex probe timed out"})
+            with job_lock:
+                if job["status"] == "running":
+                    return self._json(409, {"error": "probe already running"})
+                job.update(status="running", output="", started=time.monotonic())
+            threading.Thread(target=run_probe, daemon=True).start()
+            return self._json(202, {"status": "running"})
 
         def log_message(self, format, *args):
             pass
