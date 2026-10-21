@@ -70,5 +70,16 @@ def execute(repo, assignment):
               "head_changed": head_changed, "exit_code": proc.returncode,
               "output": (proc.stdout + "\n" + proc.stderr)[-12000:],
               "note": "No automatic commit/render/R5/R7. Review code and test first."}
+    # Persist only successful, scope-compliant source changes for separate review.
+    # A snapshot is NOT a Git commit and is forbidden as formal Stage D provenance.
+    if status == "ready_for_manual_review" and changed:
+        from studio.source_snapshots import snapshot
+        try:
+            result["snapshot"] = snapshot(
+                repo, tree, base_commit=source, allowed_files=allowed,
+                changed_files=changed, approved_finding_ids=task["approved_finding_ids"])
+        except (ValueError,OSError) as exc:
+            result["status"] = "blocked"
+            result["snapshot_error"] = str(exc)
     (workroot / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     return result
