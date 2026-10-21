@@ -3,9 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from studio.rework_approval import approve,candidates
+from studio.rework_approval import approve,candidates,recommended_files
 
 class R5ReworkApprovalTests(unittest.TestCase):
+    def test_project_file_recommendation(self):
+        self.assertEqual(recommended_files("orders_two_routes"), [
+            "scripts/primitives/orderflow.py",
+            "tests/test_pilot001_visual_fix.py"])
+        self.assertEqual(recommended_files("unknown_project"), [])
+
     def test_no_runs(self):
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(candidates(Path(d)),[])
