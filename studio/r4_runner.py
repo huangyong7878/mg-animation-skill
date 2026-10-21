@@ -70,6 +70,17 @@ def execute(repo, assignment):
               "head_changed": head_changed, "exit_code": proc.returncode,
               "output": (proc.stdout + "\n" + proc.stderr)[-12000:],
               "note": "No automatic commit/render/R5/R7. Review code and test first."}
+    if status == "ready_for_manual_review" and task["project_id"] == "orders_two_routes" and "scripts/primitives/orderflow.py" in changed:
+        from studio.r3_binding_gate import check as check_r3
+        try:
+            result["r3_static_gate"] = check(repo, tree, source)
+            if not result["r3_static_gate"]["passed"]:
+                result["status"] = "blocked"
+                status = "blocked"
+        except (ValueError, OSError, SyntaxError, subprocess.SubprocessError) as exc:
+            result["status"] = "blocked"
+            result["r3_static_gate"] = {"passed": False, "issues": [str(exc)]}
+            status = "blocked"
     # Persist only successful, scope-compliant source changes for separate review.
     # A snapshot is NOT a Git commit and is forbidden as formal Stage D provenance.
     if status == "ready_for_manual_review" and changed:
