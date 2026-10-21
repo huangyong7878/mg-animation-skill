@@ -204,3 +204,55 @@ async function refreshR5(){
 }
 document.getElementById("r5-refresh").addEventListener("click",refreshR5);
 refreshR5();
+
+let r5Ready=false;
+const r5Select=document.getElementById("r5-delivery-select");
+const r5Submit=document.getElementById("r5-submit");
+const r5Output=document.getElementById("r5-submit-output");
+function updateR5Button(){r5Submit.disabled=!r5Ready||!document.getElementById("r5-paid-confirm").checked;}
+r5Select.addEventListener("change",()=>{r5Ready=false;updateR5Button();r5Output.textContent="";});
+document.getElementById("r5-paid-confirm").addEventListener("change",updateR5Button);
+async function loadR5Deliveries(){
+ try{
+  const list=await fetch("/api/deliveries").then(r=>r.json());
+  r5Select.replaceChildren();
+  for(const item of list.deliveries){
+   if(!item.manifest_ok||item.status!=="ready_for_qa")continue;
+   const o=document.createElement("option");o.value=item.id;o.textContent=item.version+" · "+item.id;r5Select.append(o);
+  }
+  if(!r5Select.options.length){const o=document.createElement("option");o.value="";o.textContent="暂无可审核成片";r5Select.append(o);}
+ }catch(e){r5Output.textContent=String(e);}
+}
+document.getElementById("r5-preflight").addEventListener("click",async()=>{
+ r5Ready=false;updateR5Button();
+ if(!r5Select.value){r5Output.textContent="请选择交付包";return;}
+ try{
+  const check=await fetch("/api/r5/preflight/"+encodeURIComponent(r5Select.value)).then(r=>r.json());
+  r5Ready=check.ready===true;
+  r5Output.textContent=r5Ready?
+   "PASS · 已绑定源码 "+check.source_sha+"\n仅进行收费抽帧审核，完整音画审核仍需独立完成。":
+   "BLOCKED · "+(check.issues||[check.error||"校验失败"]).join("; ");
+  updateR5Button();
+ }catch(e){r5Output.textContent=String(e);}
+});
+r5Submit.addEventListener("click",async()=>{
+ if(!r5Ready||!document.getElementById("r5-paid-confirm").checked)return;
+ r5Ready=false;updateR5Button();
+ const id=r5Select.value;
+ try{
+  const response=await fetch("/api/r5/submit",{method:"POST",headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},
+   body:JSON.stringify({delivery_id:id,confirm_paid_sampled_review:true})});
+  const result=await response.json();
+  if(!response.ok){r5Output.textContent=result.error||(result.issues||[]).join("; ");return;}
+  r5Output.textContent="审核运行中…";
+  const poll=async()=>{
+   try{
+    const data=await fetch("/api/r5/paid-status").then(r=>r.json());
+    r5Output.textContent="状态："+data.status+"\n"+JSON.stringify(data.result||{},null,2);
+    if(data.status==="running"){setTimeout(poll,2000);}
+    else {refreshR5();}
+   }catch(e){r5Output.textContent=String(e);}
+  };poll();
+ }catch(e){r5Output.textContent=String(e);}
+});
+loadR5Deliveries();
