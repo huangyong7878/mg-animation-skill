@@ -56,7 +56,9 @@ def create_handler(repo, token):
                 job["status"] = "failed"
                 job["output"] = str(exc)
 
-    r4 = {"status": "idle", "output": "", "result": None}
+    from job_store import JobStore
+    store = JobStore(repo / "work/mg_studio/jobs.sqlite3")
+    r4 = {"status": "idle", "output": "", "result": None, "job_id": None}
     def available_tasks():
         from r4_runner import validate_assignment
         tasks = []
@@ -75,9 +77,11 @@ def create_handler(repo, token):
             result = execute(repo, active_task["path"])
             with job_lock:
                 r4.update(status=result["status"], output=result["output"], result=result)
+                store.finish(r4["job_id"], result["status"], result)
         except Exception as exc:
             with job_lock:
                 r4.update(status="failed", output=type(exc).__name__ + ": " + str(exc))
+                store.finish(r4["job_id"], "failed", {"error": type(exc).__name__})
 
     class Handler(BaseHTTPRequestHandler):
         def _reply(self, status, body, content_type="application/json; charset=utf-8"):
@@ -112,6 +116,8 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/r4/history":
+                return self._json(200, {"jobs": store.list()})
             if path == "/api/r4/tasks":
                 return self._json(200, {"tasks": available_tasks()})
             if path == "/api/r4":
@@ -131,7 +137,6 @@ def create_handler(repo, token):
                 return self._json(403, {"error": "forbidden"})
             path = urlparse(self.path).path
             if path not in ("/api/codex-probe", "/api/r4/start"):
-                return self._json(404, {"error": "not found"})
                 return self._json(404, {"error": "not found"})
             try:
                 size = int(self.headers.get("Content-Length", "0"))
@@ -154,12 +159,14 @@ def create_handler(repo, token):
                 except (ValueError, OSError, subprocess.CalledProcessError) as exc:
                     return self._json(422, {"error": str(exc)})
                 with job_lock:
-                    if r4["status"] != "idle":
+                    if r4["status"] == "running" or store.active():
                         return self._json(409, {"error": "R4 already started; inspect existing result"})
+                    identifier = store.start(job_id)
                     active_task["path"] = path_to_task
-                    r4.update(status="running", output="Starting isolated worktree…")
+                    r4.update(status="running", output="Starting isolated worktree…",
+                              result=None, job_id=identifier)
                 threading.Thread(target=run_r4, daemon=True).start()
-                return self._json(202, {"status": "running"})
+                return self._json(202, {"status": "running", "job_id": identifier})
             if not _which("codex"):
                 return self._json(422, {"error": "Codex CLI not found"})
             with job_lock:
