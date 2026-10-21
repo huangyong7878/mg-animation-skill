@@ -5,6 +5,16 @@ from pathlib import Path
 
 RUN_ID = re.compile(r"^review_[0-9a-f]{16}$")
 INBOX_ID = re.compile(r"^[a-zA-Z0-9_-]{3,80}$")
+PROJECT_EDIT_POLICY = {
+    "orders_two_routes": (
+        "scripts/primitives/orderflow.py",
+        "tests/test_pilot001_visual_fix.py",
+    ),
+}
+
+def recommended_files(project_id):
+    return list(PROJECT_EDIT_POLICY.get(project_id, ()))
+
 
 def _run(repo, run_id):
     if not isinstance(run_id,str) or not RUN_ID.fullmatch(run_id):
@@ -44,7 +54,8 @@ def candidates(repo):
             out.append({"id":run.name,"delivery_id":(run/"source_delivery_id.txt").read_text().strip(),
                 "source_sha":task["implementation_commit"],"video_sha256":task["video_sha256"],
                 "scope":task["r5_scope"],"status":task["status"],
-                "findings":task["findings"]})
+                "findings":task["findings"],
+                "recommended_files":recommended_files(task["project_id"])})
         except (OSError,ValueError,KeyError,TypeError):
             continue
     return out
@@ -65,6 +76,9 @@ def approve(repo, *, run_id, selected_ids, allowed_files, approved_by, inbox_id)
     task=json.loads((run/"r4_rework_draft/rework_task_candidate.json").read_text())
     if task.get("status")!="draft_unverified" or task.get("r5_scope")!="sampled_frames_only":
         raise ValueError("Only sampled-frame unverified findings can be dispatched for rework")
+    recommendations = recommended_files(task["project_id"])
+    if recommendations and not set(allowed_files).issubset(set(recommendations)):
+        raise ValueError("Editable files exceed project-approved policy")
     inbox=Path(repo).resolve()/"work/r4_inbox"/inbox_id
     return dispatch(run,selected_ids=selected_ids,approved_by=approved_by,
                     inbox=inbox,artifact_root=folder,allowed_files=allowed_files)
