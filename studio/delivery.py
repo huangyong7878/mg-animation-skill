@@ -7,6 +7,7 @@ approves R5/R7.
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 PILOT = Path("work/orders_pilot")
@@ -48,6 +49,10 @@ def preflight(repo):
     except (OSError, subprocess.SubprocessError):
         sha = None
         issues.append("Cannot inspect Git HEAD")
+    # Running studio/server.py directly puts studio/ rather than repo root on sys.path.
+    # Add the explicitly configured checkout so the existing workflow package resolves.
+    if str(repo) not in sys.path:
+        sys.path.insert(0, str(repo))
     # Reuse the production lock gate, not a duplicate UI approximation.
     if not issues:
         try:
