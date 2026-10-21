@@ -7,11 +7,14 @@ import uuid
 import time
 import subprocess
 import threading
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 UI = Path(__file__).with_name("index.html")
 MAX_BODY = 2048
 
