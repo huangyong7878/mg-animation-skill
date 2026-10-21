@@ -1,104 +1,74 @@
-"""Safe single-assignment local Codex runner for MG Studio.
-
-This does not push, merge, render, perform R5 review, or publish. It creates
-a detached Git worktree outside the source checkout, and refuses an unapproved
-or stale assignment. Treat sandboxing as defense in depth, not a hard OS jail.
-"""
-import hashlib
+"""Generic, fail-closed R4 task runner. No commits, pushes or publishing."""
 import json
 import subprocess
 import tempfile
 from pathlib import Path
+from jsonschema import Draft202012Validator
 
-LOCKED_PREFIXES = (
-    "work/orders_pilot/script_lock.json",
-    "work/orders_pilot/voice_lock.json",
-    "work/orders_pilot/formal_locked_director_spec.json",
-    "work/orders_pilot/formal_narration_candidate.json",
-    "work/orders_pilot/formal_av_cues_candidate.json",
-    "work/orders_pilot/script_candidate.txt",
-    "work/orders_pilot/storyboard_candidate.md",
-)
+SCHEMA = Path(__file__).resolve().parents[1] / "contracts/r4_executable_assignment.schema.json"
 
-def _git(repo, *args):
-    return subprocess.run(["git", "-C", str(repo), *args],
-                          capture_output=True, text=True, check=True).stdout.strip()
+def git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+def valid_path(p):
+    q = Path(p)
+    return (not q.is_absolute() and ".." not in q.parts
+            and len(q.parts) > 0 and not any(x.startswith(".git") for x in q.parts)
+            and not p.startswith(("work/", "media/", "approvals/", "contracts/", "workflow/", "studio/"))
+            and (p.startswith("scripts/") or p.startswith("tests/")))
 
 def validate_assignment(repo, path):
+    repo = Path(repo).resolve()
     path = Path(path).resolve()
-    allowed = (repo / "work/r4_inbox/pilot001_v3/assignment.json").resolve()
-    if path != allowed or not path.is_file():
-        raise ValueError("Only the approved Pilot 001 V3 local assignment is allowed")
+    inbox = (repo / "work/r4_inbox").resolve()
+    if not path.is_relative_to(inbox) or path.name != "assignment.json" or not path.is_file():
+        raise ValueError("Assignment must be inside work/r4_inbox/<job>/assignment.json")
     task = json.loads(path.read_text(encoding="utf-8"))
-    if task.get("kind") != "r4_rework_assignment" or task.get("status") != "approved_for_rework_only":
-        raise ValueError("Assignment has no approved R4 authorization")
-    if not task.get("approval", {}).get("explicit_cli_authorization"):
-        raise ValueError("Missing explicit R0 authorization")
-    expected = {"V2-P1-001", "V2-P1-002", "V2-P2-001",
-                "V2-P2-002", "V2-P2-003", "V2-P2-004"}
-    if set(task.get("approved_finding_ids", [])) != expected:
-        raise ValueError("Assignment IDs differ from approved V2 rework scope")
-    if task.get("source_implementation_commit") != "32e4ffbc676ed4c2a379d528a7f0e2632a4490ec":
-        raise ValueError("Unexpected V2 source commit")
-    if not task.get("production_lock_hashes", {}).get("script_lock_digest") or not task.get("production_lock_hashes", {}).get("voice_lock_digest"):
-        raise ValueError("Missing production lock digests")
-    if not all(x.get("id") in expected for x in task.get("findings", [])):
-        raise ValueError("Unexpected finding in assignment")
-    if len(task["findings"]) != len(expected):
-        raise ValueError("Incomplete finding set")
-    _git(repo, "cat-file", "-e", task["source_implementation_commit"] + "^{commit}")
+    errors = list(Draft202012Validator(json.loads(SCHEMA.read_text())).iter_errors(task))
+    if errors:
+        raise ValueError("Invalid executable R4 assignment: " + errors[0].message)
+    ids = [f["id"] for f in task["findings"]]
+    if len(ids) != len(set(ids)) or set(ids) != set(task["approved_finding_ids"]):
+        raise ValueError("Finding IDs do not match approved scope")
+    files = task["execution_policy"]["allowed_files"]
+    if any(not valid_path(p) for p in files):
+        raise ValueError("Forbidden edit path in execution policy")
+    git(repo, "cat-file", "-e", task["source_implementation_commit"] + "^{commit}")
     return task
 
-def execute(repo, assignment, on_event=None):
-    """Yield progress through callback; never touch source checkout working tree."""
+def execute(repo, assignment):
     repo = Path(repo).resolve()
     task = validate_assignment(repo, assignment)
-    base_commit = task["source_implementation_commit"]
-    if _git(repo, "status", "--porcelain"):
-        # Local user workspace can have untracked artifacts; worktree still isolates it.
-        pass
+    source = task["source_implementation_commit"]
     workroot = Path(tempfile.mkdtemp(prefix="mg-studio-r4-"))
     tree = workroot / "repo"
-    _git(repo, "worktree", "add", "--detach", str(tree), base_commit)
-    if on_event:
-        on_event("worktree: " + str(tree) + "\n")
-    request = {
-        "approval": task["approval"], "findings": task["findings"],
-        "prohibited": task["prohibited"],
-        "spec_sha256": task["spec_sha256"],
-        "source_implementation_commit": task["source_implementation_commit"],
-        "production_lock_hashes": task["production_lock_hashes"],
-    }
-    prompt = (
-        "You are R4 implementing ONLY the approved visual changes on the current "
-        "mg-animation-skill checkout. Read the animation implementation and tests. "
-        "Do not edit narration, locked assets, script, storyboard, cues, or approvals. "
-        "Do not use network tools, push Git, merge PRs, publish, or claim R5 PASS. "
-        "Do not create commits. Your work will be independently reviewed. "
-        "Visual rework assignment:\n" + json.dumps(request, ensure_ascii=False)
-    )
-    try:
-        proc = subprocess.run(
-            ["codex", "exec", "--sandbox", "workspace-write", prompt],
-            cwd=tree, capture_output=True, text=True, timeout=1200, check=False)
-        output = (proc.stdout + "\n" + proc.stderr)[-12000:]
-        tracked = _git(tree, "diff", "--name-only").splitlines()
-        untracked = _git(tree, "ls-files", "--others", "--exclude-standard").splitlines()
-        changed = tracked + untracked
-        forbidden = [p for p in changed if p in LOCKED_PREFIXES or not (p == "scripts/primitives/orderflow.py" or p.startswith("tests/"))]
-        if forbidden:
-            raise ValueError("Locked or disallowed files touched: " + ", ".join(forbidden))
-        # Codex should modify implementation only, not commit independently.
-        if _git(tree, "rev-parse", "HEAD") != base_commit:
-            raise ValueError("Executor unexpectedly changed Git HEAD")
-        report = {"status": "ready_for_manual_review" if proc.returncode == 0 else "executor_failed",
-                  "exit_code": proc.returncode,
-                  "worktree": str(tree), "base_commit": base_commit,
-                  "changed_files": changed, "forbidden": forbidden,
-                  "output": output,
-                  "next_step": "Review git diff, run tests, re-render and independent R5. No commit/push/merge was done."}
-        (workroot / "result.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
-        return report
-    except Exception:
-        # Leave worktree for forensic inspection, not auto-promote changes.
-        raise
+    git(repo, "worktree", "add", "--detach", str(tree), source)
+    allowed = set(task["execution_policy"]["allowed_files"])
+    brief = {"project_id": task["project_id"], "spec_sha256": task["spec_sha256"],
+             "source_commit": source, "approved_findings": task["findings"],
+             "allowed_files": sorted(allowed)}
+    prompt = ("You are the R4 implementation executor. Fix ONLY approved findings. "
+              "Only edit the explicitly allowed source files. Do not modify approvals, "
+              "script/voice locks, narration or AV cues. Do not commit, push, merge, "
+              "publish or claim R5 PASS. Do not use network tools. "
+              "An independent gate will inspect all diffs.\n"
+              + json.dumps(brief, ensure_ascii=False))
+    proc = subprocess.run(
+        ["codex", "exec", "--sandbox", "workspace-write", prompt],
+        cwd=tree, capture_output=True, text=True,
+        timeout=task["execution_policy"]["max_runtime_seconds"], check=False)
+    changed = set(git(tree, "diff", "--name-only").splitlines())
+    changed |= set(git(tree, "diff", "--cached", "--name-only").splitlines())
+    changed |= set(git(tree, "ls-files", "--others", "--exclude-standard").splitlines())
+    forbidden = sorted(changed - allowed)
+    head_changed = git(tree, "rev-parse", "HEAD") != source
+    status = ("blocked" if forbidden or head_changed else
+              "ready_for_manual_review" if proc.returncode == 0 else "executor_failed")
+    result = {"status": status, "worktree": str(tree), "base_commit": source,
+              "changed_files": sorted(changed), "forbidden_files": forbidden,
+              "head_changed": head_changed, "exit_code": proc.returncode,
+              "output": (proc.stdout + "\n" + proc.stderr)[-12000:],
+              "note": "No automatic commit/render/R5/R7. Review code and test first."}
+    (workroot / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
