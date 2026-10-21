@@ -1,5 +1,6 @@
 """MG Studio Stage D bridge checks do not call a model or render in tests."""
 import tempfile
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +14,14 @@ class StageDStudioTests(unittest.TestCase):
         self.assertFalse(result["ready"])
         self.assertTrue(any("audio" in s for s in result["issues"]))
         self.assertFalse(result["r7_authorized"])
+
+    def test_preflight_adds_checkout_to_module_search_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d).resolve()
+            with patch.object(delivery, "_git", return_value="a"*40):
+                with patch.object(sys, "path", [p for p in sys.path if p != str(root)]):
+                    delivery.preflight(root)
+                    self.assertIn(str(root), sys.path)
 
     def test_bad_run_id_rejected_before_render(self):
         with tempfile.TemporaryDirectory() as d:
