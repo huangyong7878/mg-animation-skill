@@ -24,5 +24,11 @@ small{color:#91a6c0}@media(max-width:680px){main{grid-template-columns:1fr}}
 <label style="display:block;margin:12px 0"><input type="checkbox" id="delivery-confirm"> 我确认只生成待审核成片，不批准 R5/R7，且可能占用本机计算资源</label>
 <button type="button" id="delivery-build" disabled>生成 Stage D 成片</button>
 <pre id="delivery-output"></pre></section>
+<section class="wide"><h2>Stage D · 交付查看器</h2>
+<p>列出本地成片、验证交付清单 SHA256，并播放已验证的 MP4。播放不代表 R5 审核通过。</p>
+<button type="button" id="refresh-deliveries">刷新交付包</button>
+<div id="delivery-list">读取中…</div>
+<video id="delivery-video" controls preload="metadata" style="width:100%;max-height:400px;margin-top:12px" hidden></video>
+<pre id="delivery-details"></pre></section>
 <section class="wide"><h2>后续版本</h2><p>API Key 安全存储、R2/R3 角色配置、R4 受控代码修改、R5 模型审核、视频预览与审批操作将在完成权限和任务持久化后逐步启用。</p></section>
 </main><script src="/app.js"></script></body></html>
