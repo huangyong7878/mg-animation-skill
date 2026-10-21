@@ -1,5 +1,6 @@
 """Viewer restricts filenames and refuses invalid media; no actual videos required."""
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,13 @@ class DeliveryViewerTests(unittest.TestCase):
             "spec_sha256":"b"*64,"artifacts":{"video_path":"media/stage_d_final.mp4"}}))
         (self.folder/"media_manifest.json").write_text(json.dumps({"files":[{"path":"media/stage_d_final.mp4"}]}))
         (self.folder/"director_spec.json").write_text("{}")
+
+    def test_standard_http_range_syntax(self):
+        # Regression for browsers requesting "Range: bytes=0-".
+        source = (Path(__file__).resolve().parents[1] / "studio/server.py").read_text()
+        self.assertIn('r"bytes=(\\d+)-(\\d*)"', source)
+        self.assertIsNotNone(re.fullmatch(r"bytes=(\\d+)-(\\d*)", "bytes=0-"))
+        self.assertIsNotNone(re.fullmatch(r"bytes=(\\d+)-(\\d*)", "bytes=1024-2047"))
 
     def test_rejects_traversal(self):
         for value in ("../etc/passwd","stage_d_studio_bad","../../private"):
