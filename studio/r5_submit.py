@@ -78,11 +78,10 @@ def submit_review(repo, delivery_id):
         "script_lock":folder/"approvals/script_lock.json",
         "voice_lock":folder/"approvals/voice_lock.json",
     }
-    target.mkdir(parents=True,exist_ok=False)
-    (target/"source_delivery_id.txt").write_text(delivery_id)
     # R0's real contract gates verify locks and immutable media. No API call
     # happens until all prepare/receive/review-package operations succeed.
     r0.prepare(folder/"director_spec.json", target, formal_assets=assets)
+    (target/"source_delivery_id.txt").write_text(delivery_id)
     r0.receive(target, folder/"delivery.json", folder)
     r0.make_review(target)
     result = run_review("deepseek", target, folder)
