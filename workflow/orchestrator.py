@@ -459,6 +459,10 @@ def build_parser():
     p.add_argument("--provider", choices=provider_names(), required=True)
     p.add_argument("--artifact-root", required=True)
     p.add_argument("--model", default=None, help="Optional provider model override")
+    p = sub.add_parser("rework-draft")
+    p.add_argument("--workdir", required=True)
+    p.add_argument("--findings", required=True, help="R5 evidence-bound findings candidate JSON")
+    p.add_argument("--artifact-root", required=True)
     p = sub.add_parser("record-qa")
     p.add_argument("--workdir", required=True)
     p.add_argument("--qa", required=True)
@@ -503,6 +507,9 @@ def main(argv=None):
         elif args.command == "review":
             from workflow.r5_registry import run_review
             result = run_review(args.provider, args.workdir, args.artifact_root, model=args.model)
+        elif args.command == "rework-draft":
+            from workflow.r5_rework import prepare_rework
+            result = prepare_rework(args.workdir, args.findings, args.artifact_root)
         elif args.command == "record-qa":
             if args.max_attempts < 1:
                 parser.error("--max-attempts must be positive")
