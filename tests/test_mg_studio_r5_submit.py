@@ -18,8 +18,8 @@ class R5SubmitTests(unittest.TestCase):
                 "implementation_commit":"a"*40}))
             with patch("studio.delivery_viewer.inspect",return_value={
                 "manifest_ok":True,"status":"ready_for_qa"}):
-                with patch("studio.settings.load",return_value={"r5_enabled":False,"proxy_mode":"system","proxy_url":""}), \\
-                     patch("studio.settings.public_status",return_value={"deepseek_key_configured":False}):
+                with (patch("studio.settings.load",return_value={"r5_enabled":False,"proxy_mode":"system","proxy_url":""}),
+                      patch("studio.settings.public_status",return_value={"deepseek_key_configured":False})):
                     result=review_preflight(root,folder.name)
             self.assertFalse(result["ready"])
             self.assertIn("DeepSeek API Key",str(result["issues"]))
