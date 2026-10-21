@@ -328,7 +328,7 @@ function renderFindings(){
  reworkFindings.append(origin);
  const recommended=run.recommended_files||[];
  const editable=document.getElementById("rework-allowed-files");
- editable.value=recommended.join("\\n");
+ editable.value=recommended.join(String.fromCharCode(10));
  const hint=document.createElement("p");
  hint.textContent=recommended.length?
   "已根据项目策略推荐 "+recommended.length+" 个可修改文件。请核对后批准；不得扩大授权。":
