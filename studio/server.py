@@ -108,6 +108,17 @@ def create_handler(repo, token):
             with job_lock:
                 rendering.update(status="failed", result={"error":str(exc)[:500]})
 
+    review_job = {"status":"idle", "result":None, "delivery_id":None}
+    def run_paid_review(delivery_id):
+        try:
+            from studio.r5_submit import submit_review
+            result = submit_review(repo, delivery_id)
+            with job_lock:
+                review_job.update(status="completed", result=result)
+        except Exception as exc:
+            with job_lock:
+                review_job.update(status="failed", result={"error":str(exc)[:600]})
+
     class Handler(BaseHTTPRequestHandler):
         def _reply(self, status, body, content_type="application/json; charset=utf-8"):
             data = body.encode("utf-8") if isinstance(body, str) else body
@@ -141,6 +152,15 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/r5/paid-status":
+                with job_lock:
+                    return self._json(200, dict(review_job))
+            if path.startswith("/api/r5/preflight/"):
+                try:
+                    from studio.r5_submit import review_preflight
+                    return self._json(200, review_preflight(repo,path.split("/")[-1]))
+                except (ValueError, OSError, KeyError) as exc:
+                    return self._json(422, {"error":str(exc)})
             if path == "/api/r5/history":
                 try:
                     from studio.r5_dashboard import review_history
@@ -224,7 +244,7 @@ def create_handler(repo, token):
             if not self._origin_ok() or self.headers.get("X-MG-CSRF") != token:
                 return self._json(403, {"error": "forbidden"})
             path = urlparse(self.path).path
-            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build"):
+            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build", "/api/r5/submit"):
                 return self._json(404, {"error": "not found"})
             try:
                 size = int(self.headers.get("Content-Length", "0"))
@@ -233,6 +253,24 @@ def create_handler(repo, token):
             if size < 0 or size > MAX_BODY:
                 return self._json(413, {"error": "request too large"})
             self._request_body = self.rfile.read(size)
+            if path == "/api/r5/submit":
+                try:
+                    from studio.r5_submit import review_preflight
+                    req = json.loads(self._request_body.decode("utf-8"))
+                    delivery_id = req["delivery_id"]
+                    if req.get("confirm_paid_sampled_review") is not True:
+                        raise ValueError("Explicit paid sampled-frame review confirmation required")
+                    checked = review_preflight(repo,delivery_id)
+                    if not checked["ready"]:
+                        return self._json(422, checked)
+                except (ValueError, TypeError, KeyError, OSError) as exc:
+                    return self._json(422, {"error":str(exc)})
+                with job_lock:
+                    if review_job["status"] != "idle":
+                        return self._json(409, {"error":"R5 already started this session"})
+                    review_job.update(status="running", delivery_id=delivery_id, result=None)
+                threading.Thread(target=run_paid_review,args=(delivery_id,),daemon=True).start()
+                return self._json(202, {"status":"running"})
             if path == "/api/delivery/build":
                 try:
                     from studio.delivery import preflight
