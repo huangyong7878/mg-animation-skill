@@ -25,9 +25,9 @@ class DeliveryViewerTests(unittest.TestCase):
     def test_standard_http_range_syntax(self):
         # Regression for browsers requesting "Range: bytes=0-".
         source = (Path(__file__).resolve().parents[1] / "studio/server.py").read_text()
-        self.assertIn('r"bytes=(\\d+)-(\\d*)"', source)
-        self.assertIsNotNone(re.fullmatch(r"bytes=(\\d+)-(\\d*)", "bytes=0-"))
-        self.assertIsNotNone(re.fullmatch(r"bytes=(\\d+)-(\\d*)", "bytes=1024-2047"))
+        self.assertIn('r"bytes=(\d+)-(\d*)"', source)
+        self.assertIsNotNone(re.fullmatch(r"bytes=(\d+)-(\d*)", "bytes=0-"))
+        self.assertIsNotNone(re.fullmatch(r"bytes=(\d+)-(\d*)", "bytes=1024-2047"))
 
     def test_version_and_review_are_not_inferred_from_ready_for_qa(self):
         self.assertEqual(display_version("stage_d_delivery"), "初版")
