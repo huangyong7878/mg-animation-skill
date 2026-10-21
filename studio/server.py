@@ -59,7 +59,7 @@ def create_handler(repo, token):
     r4 = {"status": "idle", "output": "", "result": None}
     def run_r4():
         try:
-            from studio.r4_runner import execute
+            from r4_runner import execute
             result = execute(repo, repo / "work/r4_inbox/pilot001_v3/assignment.json")
             with job_lock:
                 r4.update(status=result["status"], output=result["output"], result=result)
@@ -129,7 +129,7 @@ def create_handler(repo, token):
             if path == "/api/r4/start":
                 if not _which("codex"):
                     return self._json(422, {"error": "Codex CLI not found"})
-                from studio.r4_runner import validate_assignment
+                from r4_runner import validate_assignment
                 try:
                     validate_assignment(repo, repo / "work/r4_inbox/pilot001_v3/assignment.json")
                 except (ValueError, OSError, subprocess.CalledProcessError) as exc:
