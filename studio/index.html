@@ -33,5 +33,12 @@ button:disabled{opacity:.5;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:an
 <section class="wide"><h2>R5 · 独立审核记录</h2>
 <p>显示 DeepSeek 已有的抽帧视觉审核意见和对应的源码/视频哈希。抽帧结果不是完整音画 PASS，审核记录不会自动放行 R7。</p>
 <button type="button" id="r5-refresh">刷新审核记录</button><div id="r5-history">读取中…</div></section>
+<section class="wide"><h2>R5 · 提交 DeepSeek 抽帧审核</h2>
+<p>从已验证的交付包选择一部成片，先校验完整性与 R0 双锁，再明确确认付费 API 调用。DeepSeek 仅审核抽样画面，不审核音频或完整运动。</p>
+<label for="r5-delivery-select">交付包</label> <select id="r5-delivery-select"><option value="">读取中…</option></select>
+<p><button id="r5-preflight" type="button">检查 R5 审核条件</button></p>
+<label><input type="checkbox" id="r5-paid-confirm"> 我明确授权本次 DeepSeek API 付费抽帧审核；结果不代表完整 R5 PASS 或 R7 发布批准</label>
+<p><button id="r5-submit" type="button" disabled>提交 DeepSeek 审核</button></p>
+<pre id="r5-submit-output"></pre></section>
 <section class="wide"><h2>后续版本</h2><p>API Key 安全存储、R2/R3 角色配置、R4 受控代码修改、R5 模型审核、视频预览与审批操作将在完成权限和任务持久化后逐步启用。</p></section>
 </main><script src="/app.js"></script></body></html>
