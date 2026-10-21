@@ -23,7 +23,7 @@ def extract_frames(video, folder, fps=2):
 
 def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
                     endpoint="https://api.deepseek.com/chat/completions",
-                    transport=None):
+                    transport=None, api_key=None, proxy_mode="system", proxy_url=None):
     """Calls paid external API explicitly; records image-only observations, not R5 PASS."""
     from workflow.orchestrator import load_state, read_json, write_json, required_checks
     root, state, spec = load_state(workdir)
@@ -37,7 +37,7 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     video = (base / video_rel).resolve()
     if not video.is_relative_to(base) or not video.is_file():
         raise ValueError("Video missing or outside artifact root")
-    if not os.environ.get("DEEPSEEK_API_KEY") and transport is None:
+    if not (api_key or os.environ.get("DEEPSEEK_API_KEY")) and transport is None:
         raise ValueError("DEEPSEEK_API_KEY is required")
     dest = root / "r5_deepseek"
     if dest.exists():
@@ -66,9 +66,19 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
         if endpoint != "https://api.deepseek.com/chat/completions":
             raise ValueError("Nonstandard DeepSeek endpoint forbidden")
         req = request.Request(endpoint, data=json.dumps(data).encode(),
-                              headers={"Authorization": "Bearer " + os.environ["DEEPSEEK_API_KEY"],
+                              headers={"Authorization": "Bearer " + (api_key or os.environ["DEEPSEEK_API_KEY"]),
                                        "Content-Type": "application/json"}, method="POST")
-        with request.urlopen(req, timeout=180) as response:
+        if proxy_mode == "none":
+            opener = request.build_opener(request.ProxyHandler({}))
+        elif proxy_mode == "custom":
+            if not proxy_url:
+                raise ValueError("Custom proxy URL is required")
+            opener = request.build_opener(request.ProxyHandler({"https":proxy_url}))
+        elif proxy_mode == "system":
+            opener = request.build_opener()
+        else:
+            raise ValueError("Unsupported proxy mode")
+        with opener.open(req, timeout=180) as response:
             result = json.loads(response.read())
     else:
         result = transport(data)
