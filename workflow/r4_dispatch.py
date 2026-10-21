@@ -6,7 +6,7 @@ from pathlib import Path
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
-def dispatch(workdir, *, selected_ids, approved_by, inbox, repository=None,
+def dispatch(workdir, *, selected_ids, approved_by, inbox, artifact_root, repository=None,
              dry_run=False, runner=None):
     from workflow import orchestrator as r0
     root, state, spec = r0.load_state(workdir)
@@ -20,7 +20,15 @@ def dispatch(workdir, *, selected_ids, approved_by, inbox, repository=None,
     task = r0.read_json(draft_path)
     if task.get("status") != "draft_unverified":
         raise ValueError("Expected unverified R5 task candidate")
+    source_candidate = root / "r5_deepseek" / "findings_candidate.json"
+    if not source_candidate.is_file() or digest(source_candidate) != task["source_candidate_sha256"]:
+        raise ValueError("R4 candidate source evidence was changed or missing")
+    original = r0.read_json(source_candidate)
     delivery = r0.read_json(root / "delivery.json")
+    base = Path(artifact_root).resolve()
+    video = (base / delivery["artifacts"]["video_path"]).resolve()
+    if not video.is_relative_to(base) or not video.is_file() or digest(video) != task["video_sha256"]:
+        raise ValueError("Stale or missing R4 source MP4")
     if (task["spec_sha256"] != state["spec_sha256"] or
             task["implementation_commit"] != delivery["implementation_commit"] or
             task["spec_revision"] != spec["revision"]):
@@ -31,7 +39,14 @@ def dispatch(workdir, *, selected_ids, approved_by, inbox, repository=None,
         lock_hashes = state["production_lock_hashes"]
     else:
         lock_hashes = None
+    if (task["video_sha256"] != original["video_sha256"]
+            or task["implementation_commit"] != original["implementation_commit"]
+            or task["spec_sha256"] != original["spec_sha256"]):
+        raise ValueError("R4 task does not match original R5 evidence")
     all_findings = {f["id"]: f for f in task["findings"]}
+    original_findings = {f["id"]: f for f in original["findings"]}
+    if all_findings != original_findings:
+        raise ValueError("R4 task findings differ from R5 evidence")
     if len(all_findings) != len(task["findings"]) or any(i not in all_findings for i in selected_ids):
         raise ValueError("Approved finding IDs not present in candidate")
     chosen = [f for f in task["findings"] if f["id"] in selected_ids]
