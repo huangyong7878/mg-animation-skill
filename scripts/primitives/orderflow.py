@@ -28,12 +28,12 @@ PILOT_EVENT_SECONDS = {
 # ---- palette (muted, low saturation) ----
 _PAPER = (231, 222, 212, 255)
 _INK = (53, 60, 62, 255)
-_MUTED = (116, 108, 101, 255)
+_MUTED = (79, 76, 71, 255)
 _GREEN = (110, 143, 105, 255)      # order A
 _GREEN_DK = (84, 115, 80, 255)
 _ORANGE = (192, 138, 77, 255)      # order B
 _ORANGE_DK = (160, 112, 58, 255)
-_LINE = (170, 160, 148, 255)
+_LINE = (125, 117, 108, 255)
 _WHITE = (255, 255, 255, 255)
 
 
@@ -121,7 +121,7 @@ def draw(draw, box, t, node, style, col, fonts):
 
     # faint path lines
     if scene_a > 0:
-        lc = alpha(_LINE, 0.85 * scene_a)
+        lc = alpha(_LINE, scene_a)
         # A path
         for (x0, y0, x1, y1) in [
             (placed_ax, placed_ay, check_cx, check_cy),
@@ -138,7 +138,7 @@ def draw(draw, box, t, node, style, col, fonts):
             draw.line([X(x0), Y(y0), X(x1), Y(y1)], fill=lc, width=max(1, int(S(2))))
 
     # station labels (QA-P2-002: larger for readability)
-    def label(x, y, text, color=_MUTED, size=16):
+    def label(x, y, text, color=_MUTED, size=18):
         if scene_a <= 0:
             return
         draw.text((X(x), Y(y)), text, fill=alpha(color, scene_a),
@@ -150,8 +150,8 @@ def draw(draw, box, t, node, style, col, fonts):
     label(pack_x, pack_y - 52, "打包")
     label(ship_x, ship_y - 52, "发货")
 
-    # stock check diamond — drawn AFTER cards (QA-P1-001): node stays on top
-    # so "库存检查" remains readable when cards pause at the decision point.
+    # Keep the stock decision legible AND keep A/B identity clear: card
+    # trajectories pass well outside the diamond instead of under its fill.
     def draw_stock_diamond():
         if scene_a <= 0:
             return
@@ -207,19 +207,19 @@ def draw(draw, box, t, node, style, col, fonts):
             int(S(10)), fill=(0, 0, 0, round(40 * pop)))
         _rr(draw, [x0, y0, x0 + w, y0 + h], int(S(10)),
             fill=alpha(color, pop), outline=alpha(dark, pop), width=max(1, int(S(2))))
-        if pop > 0.5:
-            a = (pop - 0.5) * 2
+        if pop > 0:
+            a = pop
             draw.text((X(cx), Y(cy) - S(8)), letter,
-                      fill=alpha(_WHITE, a), font=fonts.get(int(S(26) * sc)), anchor="mm")
+                      fill=alpha(_WHITE, a), font=fonts.get(max(16, int(S(26) * sc))), anchor="mm")
             draw.text((X(cx), Y(cy) + S(16)), "订单",
                       fill=alpha(_WHITE, a), font=fonts.get(int(S(13) * sc)), anchor="mm")
 
     # A keyframes: placed -> check -> pick -> pack -> ship
-    # (vertical offset at decision node so diamond text stays readable, QA-P1-001)
+    # (100px separation above/below decision to avoid overlapping diamond)
     a_keys = [
         (1.8, placed_ax, placed_ay),
-        (4.8, check_cx, check_cy - 48),
-        (PILOT_EVENT_SECONDS["branch_split"], check_cx, check_cy - 48),
+        (4.8, check_cx, check_cy - 100),
+        (PILOT_EVENT_SECONDS["branch_split"], check_cx, check_cy - 100),
         (7.2, pick_x, pick_y),
         (8.6, pack_x, pack_y),
         (PILOT_EVENT_SECONDS["order_a_ship_arrival"], ship_x, ship_y),
@@ -228,8 +228,8 @@ def draw(draw, box, t, node, style, col, fonts):
     # B keyframes: placed -> check -> restock queue
     b_keys = [
         (1.8, placed_bx, placed_by),
-        (4.8, check_cx, check_cy + 48),
-        (PILOT_EVENT_SECONDS["branch_split"], check_cx, check_cy + 48),
+        (4.8, check_cx, check_cy + 100),
+        (PILOT_EVENT_SECONDS["branch_split"], check_cx, check_cy + 100),
         (PILOT_EVENT_SECONDS["order_b_queue_arrival"], queue_x, queue_y),
         (13.0, queue_x, queue_y),
     ]
@@ -240,7 +240,7 @@ def draw(draw, box, t, node, style, col, fonts):
     card(bx, by, "B", _ORANGE, _ORANGE_DK, PILOT_EVENT_SECONDS["order_b_appears"])
     card(ax, ay, "A", _GREEN, _GREEN_DK, PILOT_EVENT_SECONDS["order_a_appears"])
 
-    # QA-P1-001: stock decision node on top of cards
+    # Diamond stays unobstructed because order cards stop outside its silhouette.
     draw_stock_diamond()
 
     # ---- end-state badges ----
@@ -252,12 +252,12 @@ def draw(draw, box, t, node, style, col, fonts):
         draw.text((bx0 + S(52), by0 + S(15)), "✓ 已发货",
                   fill=alpha(_WHITE, ship_a), font=fonts.get(int(S(14))), anchor="mm")
 
-    wait_a = _fade(t, 8.8, 9.6)
+    wait_a = _fade(t, 8.6, 9.1)
     if wait_a > 0:
         # gentle pulse on the waiting badge
-        pulse_a = 0.75 + 0.25 * math.sin(t * 3.0)
+        pulse_a = 1.0  # steady opaque fill improves small-screen legibility
         wx0, wy0 = X(queue_x) - S(52), Y(queue_y) + S(44)
         _rr(draw, [wx0, wy0, wx0 + S(104), wy0 + S(30)], int(S(15)),
             fill=(alpha(_ORANGE_DK, wait_a * pulse_a)))
         draw.text((wx0 + S(52), wy0 + S(15)), "…等待补货",
-                  fill=alpha(_WHITE, wait_a), font=fonts.get(int(S(14))), anchor="mm")
+                  fill=alpha(_WHITE, wait_a), font=fonts.get(int(S(16))), anchor="mm")
