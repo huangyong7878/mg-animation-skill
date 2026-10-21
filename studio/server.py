@@ -355,7 +355,7 @@ def main():
     token = secrets.token_urlsafe(32)
     server = ThreadingHTTPServer(("127.0.0.1", 8765), create_handler(repo, token))
     print("MG Studio: http://127.0.0.1:8765")
-    print("MVP only: no API keys, code writes, GitHub actions or publishing.")
+    print("MG Studio local preview: model settings available; paid R5 needs explicit confirmation; R7 publishing disabled.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
