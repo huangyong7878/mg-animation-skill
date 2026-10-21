@@ -120,3 +120,38 @@ deliveryBuild.addEventListener("click",async()=>{
   };poll();
  }catch(e){deliveryOutput.textContent=String(e);}
 });
+
+async function refreshDeliveries(){
+ const list=document.getElementById("delivery-list");
+ const details=document.getElementById("delivery-details");
+ const video=document.getElementById("delivery-video");
+ video.pause();video.removeAttribute("src");video.hidden=true;details.textContent="";
+ try{
+  const response=await fetch("/api/deliveries");
+  if(!response.ok)throw Error("HTTP "+response.status);
+  const data=await response.json();
+  list.replaceChildren();
+  if(!data.deliveries.length){list.textContent="暂无 Stage D 本地交付包";return;}
+  for(const item of data.deliveries){
+   const row=document.createElement("div");row.className="item";
+   const label=document.createElement("span");
+   label.textContent=item.id+" · "+item.status+" · "+(item.manifest_ok?"SHA256 校验通过":"完整性校验失败");
+   row.append(label);
+   if(item.manifest_ok&&item.video_url){
+    const button=document.createElement("button");button.type="button";
+    button.style.marginLeft="12px";button.textContent="查看视频";
+    button.addEventListener("click",()=>{
+      video.src=item.video_url;video.hidden=false;video.load();
+      details.textContent="实现版本："+item.source_sha+"\n导演规格："+item.spec_sha256+
+       "\n媒体文件："+item.media_count+"\nR5 尚未通过；R7 未授权。";
+    });
+    row.append(button);
+   }else{
+    const note=document.createElement("pre");note.textContent=(item.errors||[]).join("\n");row.append(note);
+   }
+   list.append(row);
+  }
+ }catch(e){list.textContent="读取交付包失败："+String(e);}
+}
+document.getElementById("refresh-deliveries").addEventListener("click",refreshDeliveries);
+refreshDeliveries();
