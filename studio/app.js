@@ -28,3 +28,25 @@ document.getElementById("probe").addEventListener("click",async()=>{
  }catch(e){o.textContent=String(e);btn.disabled=false;}
 });
 init().catch(e=>document.getElementById("workspaces").textContent=String(e));
+
+document.getElementById("run-r4").addEventListener("click",async()=>{
+ const checkbox=document.getElementById("confirm-r4");
+ const out=document.getElementById("r4-output");
+ if(!checkbox.checked){out.textContent="请先确认返工执行范围和可能的模型用量。";return;}
+ const btn=document.getElementById("run-r4");
+ btn.disabled=true;
+ try{
+  const resp=await fetch("/api/r4/start",{method:"POST",headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},body:"{}"});
+  const result=await resp.json();
+  if(!resp.ok){out.textContent=result.error||JSON.stringify(result);btn.disabled=false;return;}
+  const poll=async()=>{
+   try{
+    const data=await fetch("/api/r4").then(r=>r.json());
+    out.textContent="状态："+data.status+"\n"+(data.output||"")+
+       (data.result?"\n工作目录："+data.result.worktree+"\n改动文件："+JSON.stringify(data.result.changed_files):"");
+    if(data.status==="running"){setTimeout(poll,1800);}
+   }catch(e){out.textContent=String(e);}
+  };
+  poll();
+ }catch(e){out.textContent=String(e);}
+});
