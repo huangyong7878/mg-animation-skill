@@ -152,6 +152,9 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/settings":
+                from studio.settings import public_status
+                return self._json(200, public_status(repo))
             if path == "/api/r5/paid-status":
                 with job_lock:
                     return self._json(200, dict(review_job))
@@ -244,7 +247,7 @@ def create_handler(repo, token):
             if not self._origin_ok() or self.headers.get("X-MG-CSRF") != token:
                 return self._json(403, {"error": "forbidden"})
             path = urlparse(self.path).path
-            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build", "/api/r5/submit"):
+            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build", "/api/r5/submit", "/api/settings", "/api/settings/key", "/api/settings/key/delete"):
                 return self._json(404, {"error": "not found"})
             try:
                 size = int(self.headers.get("Content-Length", "0"))
@@ -253,6 +256,21 @@ def create_handler(repo, token):
             if size < 0 or size > MAX_BODY:
                 return self._json(413, {"error": "request too large"})
             self._request_body = self.rfile.read(size)
+            if path.startswith("/api/settings"):
+                from studio import settings
+                try:
+                    payload=json.loads(self._request_body.decode("utf-8"))
+                    if path == "/api/settings":
+                        settings.save(repo, payload)
+                    elif path == "/api/settings/key":
+                        settings.save_key(payload["api_key"])
+                    elif path == "/api/settings/key/delete":
+                        settings.delete_key()
+                    else:
+                        return self._json(404, {"error":"not found"})
+                    return self._json(200, settings.public_status(repo))
+                except (ValueError, KeyError, OSError, RuntimeError, TypeError) as exc:
+                    return self._json(422, {"error":str(exc)[:250]})
             if path == "/api/r5/submit":
                 try:
                     from studio.r5_submit import review_preflight
