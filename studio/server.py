@@ -141,6 +141,12 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/r5/history":
+                try:
+                    from studio.r5_dashboard import review_history
+                except ModuleNotFoundError:
+                    from r5_dashboard import review_history
+                return self._json(200, {"reviews": review_history(repo)})
             if path == "/api/deliveries":
                 try:
                     from studio.delivery_viewer import list_deliveries
