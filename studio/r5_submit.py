@@ -34,11 +34,12 @@ def review_preflight(repo, delivery_id):
     for key in ("script_lock", "voice_lock"):
         if not (folder/"approvals"/(key+".json")).is_file():
             issues.append("Missing formal production approval: "+key)
-    key = os.environ.get("DEEPSEEK_API_KEY")
-    if not key:
-        issues.append("DEEPSEEK_API_KEY is not configured in MG Studio environment")
-    if os.environ.get("R5_ENABLED") != "true":
-        issues.append("R5_ENABLED must equal true for an explicit paid request")
+    from studio import settings
+    local = settings.load(repo)
+    if not settings.public_status(repo)["deepseek_key_configured"]:
+        issues.append("请在 MG Studio 设置中保存 DeepSeek API Key")
+    if not local["r5_enabled"]:
+        issues.append("请在 MG Studio 设置中启用 R5 付费审核")
     existing = []
     workroot = Path(repo).resolve()/"work/mg_studio/r5_runs"
     if workroot.exists():
@@ -84,7 +85,12 @@ def submit_review(repo, delivery_id):
     (target/"source_delivery_id.txt").write_text(delivery_id)
     r0.receive(target, folder/"delivery.json", folder)
     r0.make_review(target)
-    result = run_review("deepseek", target, folder)
+    from studio import settings
+    config = settings.load(repo)
+    result = run_review("deepseek", target, folder,
+                        api_key=settings.get_key(),
+                        proxy_mode=config["proxy_mode"],
+                        proxy_url=config["proxy_url"] or None)
     return {"status":"pending_full_av_review","workdir":str(target),
             "delivery_id":delivery_id,"result":result,
             "r5_pass":False,"r7_authorized":False}
