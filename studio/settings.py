@@ -1,5 +1,7 @@
 """Local MG Studio settings. Secrets live in macOS Keychain, never JSON."""
 import json
+import ctypes
+import ctypes.util
 import os
 import re
 import subprocess
@@ -31,14 +33,56 @@ def get_key():
         raise ValueError("DeepSeek API Key not found in macOS Keychain")
     return result.stdout.strip()
 
+def _write_keychain_native(value):
+    """Store/update a generic password via Security.framework; no secret in argv."""
+    if sys.platform != "darwin":
+        raise RuntimeError("macOS Keychain required for credential management")
+    libname = ctypes.util.find_library("Security")
+    if not libname:
+        raise RuntimeError("macOS Security framework unavailable")
+    lib = ctypes.CDLL(libname)
+    ptr = ctypes.c_void_p
+    uint = ctypes.c_uint32
+    lib.SecKeychainFindGenericPassword.argtypes = [
+        ptr, uint, ptr, uint, ptr, ptr, ptr, ctypes.POINTER(ptr)]
+    lib.SecKeychainFindGenericPassword.restype = ctypes.c_int32
+    lib.SecKeychainAddGenericPassword.argtypes = [
+        ptr, uint, ptr, uint, ptr, uint, ptr, ctypes.POINTER(ptr)]
+    lib.SecKeychainAddGenericPassword.restype = ctypes.c_int32
+    lib.SecKeychainItemModifyAttributesAndData.argtypes = [
+        ptr, ptr, uint, ptr]
+    lib.SecKeychainItemModifyAttributesAndData.restype = ctypes.c_int32
+    service = SERVICE.encode("utf-8")
+    account = ACCOUNT.encode("utf-8")
+    password = value.encode("utf-8")
+    item = ptr()
+    status = lib.SecKeychainFindGenericPassword(
+        None, len(service), service, len(account), account,
+        None, None, ctypes.byref(item))
+    try:
+        if status == -25300:  # errSecItemNotFound
+            result = lib.SecKeychainAddGenericPassword(
+                None, len(service), service, len(account), account,
+                len(password), password, None)
+        elif status == 0:
+            result = lib.SecKeychainItemModifyAttributesAndData(
+                item, None, len(password), password)
+        else:
+            raise RuntimeError(f"Keychain lookup failed (OSStatus {status})")
+        if result:
+            raise RuntimeError(f"Keychain write failed (OSStatus {result})")
+    finally:
+        if item.value:
+            cf = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
+            cf.CFRelease.argtypes = [ptr]
+            cf.CFRelease(item)
+
+
 def save_key(value):
-    if not isinstance(value, str) or not value.strip() or len(value) > 512 or "\n" in value or "\r" in value:
+    if (not isinstance(value, str) or not value.strip() or len(value) > 512
+            or "\\n" in value or "\\r" in value):
         raise ValueError("Invalid API Key")
-    # -w without a value reads the password from stdin. Never place key in argv/logs.
-    result = _security("add-generic-password", "-a", ACCOUNT, "-s", SERVICE,
-                       "-U", "-w", input_text=value.strip()+"\n")
-    if result.returncode:
-        raise RuntimeError("Keychain failed to store the credential")
+    _write_keychain_native(value.strip())
 
 def delete_key():
     result = _security("delete-generic-password", "-a", ACCOUNT, "-s", SERVICE)
