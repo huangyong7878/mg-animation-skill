@@ -56,11 +56,17 @@ def create_handler(repo, token):
                 job["status"] = "failed"
                 job["output"] = str(exc)
 
-    from job_store import JobStore
+    try:
+        from studio.job_store import JobStore
+    except ModuleNotFoundError:
+        from job_store import JobStore
     store = JobStore(repo / "work/mg_studio/jobs.sqlite3")
     r4 = {"status": "idle", "output": "", "result": None, "job_id": None}
     def available_tasks():
-        from r4_runner import validate_assignment
+        try:
+            from studio.r4_runner import validate_assignment
+        except ModuleNotFoundError:
+            from r4_runner import validate_assignment
         tasks = []
         for p in sorted((repo / "work/r4_inbox").glob("*/assignment.json")):
             try:
@@ -73,7 +79,10 @@ def create_handler(repo, token):
     active_task = {"path": None}
     def run_r4():
         try:
-            from r4_runner import execute
+            try:
+                from studio.r4_runner import execute
+            except ModuleNotFoundError:
+                from r4_runner import execute
             result = execute(repo, active_task["path"])
             with job_lock:
                 r4.update(status=result["status"], output=result["output"], result=result)
@@ -148,7 +157,10 @@ def create_handler(repo, token):
             if path == "/api/r4/start":
                 if not _which("codex"):
                     return self._json(422, {"error": "Codex CLI not found"})
-                from r4_runner import validate_assignment
+                try:
+                    from studio.r4_runner import validate_assignment
+                except ModuleNotFoundError:
+                    from r4_runner import validate_assignment
                 try:
                     supplied = json.loads(self._request_body.decode("utf-8"))
                     job_id = supplied["task_id"]
