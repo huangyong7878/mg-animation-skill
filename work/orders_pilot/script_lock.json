@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "status": "approved",
+  "approved_by": "Project owner via ChatGPT (explicit user authorization)",
+  "approved_at": "2026-10-20T14:47:47Z",
+  "revision": 1,
+  "project_id": "orders_two_routes",
+  "spec_id": "orders_shot_001",
+  "spec_revision": 1,
+  "script_sha256": "0280cea0006552c69a7ceec9e925773672173ca3a9b120e5a49b1d0cc3ead2db",
+  "plan_sha256": "d523a4f018c1c6609a3d2aff9d552be075d0eb135c19c47b98bf22b1b996bd1c",
+  "cues_sha256": "575c9111d9894560c541448fd0c85c75ff253824fd92bbf8b24635f87a407146",
+  "storyboard_sha256": "4afb44c5a2c5cada22cae5da896ec0d9dffcc4bfe5f799e8ee988697beedd999",
+  "director_storyboard_sha256": "c7e0ecd75765f10da1f3277040bbd59ec7302b7cab10f50eaf81bb31d0207712"
+}

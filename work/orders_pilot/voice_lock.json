@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "status": "approved",
+  "approved_by": "Project owner via ChatGPT (explicit voice-lock authorization after listening)",
+  "approved_at": "2026-10-20T15:18:13Z",
+  "script_lock_sha256": "9441d96fe278b613bce3d615949b07d7310bda7f2a80370f5b24f571439033ad",
+  "voice_id": "zh-CN-XiaoxiaoNeural",
+  "voice_style": "professional, calm; voice candidate generated at -5% rate",
+  "audio_sha256": "badb181b5fbf2eb51c472bd93154c7addc49d92bb757ecc803a1060f4c045e73",
+  "timings_sha256": "9f66d3429dc90e8dda82698f6c2e7e277c3e4bba814309e6892149c7f051bc99"
+}

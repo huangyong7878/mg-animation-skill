@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "project_id": "orders_two_routes",
+  "spec_id": "orders_shot_001",
+  "spec_revision": 1,
+  "status": "approved",
+  "event_source": "scripts/primitives/orderflow.py:PILOT_EVENT_SECONDS",
+  "notes": "R3 event contract approved by project owner through ChatGPT on 2026-10-20; locked to exact asset SHA256 in separate Script Lock record. This does not approve voice.",
+  "cues": [
+    {
+      "segment_id": "intro",
+      "start_event": "order_a_appears",
+      "start_offsets_s": [
+        -1,
+        -0.7
+      ],
+      "end_event": "branch_split",
+      "max_end_offset_s": -2.5,
+      "required_words": [
+        "两张订单"
+      ],
+      "expected_visual": "两张订单在画面中开始出现"
+    },
+    {
+      "segment_id": "out_of_stock",
+      "start_event": "branch_split",
+      "start_offsets_s": [
+        0,
+        0.35
+      ],
+      "end_event": "order_b_queue_arrival",
+      "max_end_offset_s": 1,
+      "required_words": [
+        "库存不足",
+        "订单B"
+      ],
+      "expected_visual": "B 沿缺货路径走向待补货队列"
+    },
+    {
+      "segment_id": "in_stock",
+      "start_event": "order_a_ship_arrival",
+      "start_offsets_s": [
+        -0.6,
+        -0.1
+      ],
+      "end_event": "order_a_ship_arrival",
+      "max_end_offset_s": 2.9,
+      "required_words": [
+        "库存充足",
+        "订单A"
+      ],
+      "expected_visual": "A 沿发货路径抵达发货站"
+    }
+  ]
+}
