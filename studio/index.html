@@ -33,6 +33,18 @@ button:disabled{opacity:.5;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:an
 <section class="wide"><h2>R5 · 独立审核记录</h2>
 <p>显示 DeepSeek 已有的抽帧视觉审核意见和对应的源码/视频哈希。抽帧结果不是完整音画 PASS，审核记录不会自动放行 R7。</p>
 <button type="button" id="r5-refresh">刷新审核记录</button><div id="r5-history">读取中…</div></section>
+<section class="wide"><h2>模型与网络设置</h2>
+<p>DeepSeek 密钥保存在 macOS Keychain；页面只显示是否已配置，不回显密钥。</p>
+<label for="deepseek-key">DeepSeek API Key</label>
+<input id="deepseek-key" type="password" autocomplete="new-password" placeholder="输入新 Key（不会回显）">
+<button id="save-key" type="button">保存到 Keychain</button>
+<button id="delete-key" type="button">删除密钥</button>
+<p><label><input type="checkbox" id="settings-r5-enabled"> 启用付费 R5 审核（每次仍需确认）</label></p>
+<label for="proxy-mode">代理模式</label>
+<select id="proxy-mode"><option value="system">使用系统或进程代理</option><option value="custom">自定义 HTTP(S) 代理</option><option value="none">不使用代理</option></select>
+<input id="proxy-url" placeholder="http://127.0.0.1:7897">
+<button id="save-settings" type="button">保存设置</button>
+<pre id="settings-output"></pre></section>
 <section class="wide"><h2>R5 · 提交 DeepSeek 抽帧审核</h2>
 <p>从已验证的交付包选择一部成片，先校验完整性与 R0 双锁，再明确确认付费 API 调用。DeepSeek 仅审核抽样画面，不审核音频或完整运动。</p>
 <label for="r5-delivery-select">交付包</label> <select id="r5-delivery-select"><option value="">读取中…</option></select>
