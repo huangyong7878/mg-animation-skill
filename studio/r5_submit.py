@@ -59,7 +59,8 @@ def review_preflight(repo, delivery_id):
             "source_sha":delivery["implementation_commit"],
             "estimated_frame_count":None,
             "scope":"sampled_frames_only", "paid_api":True,
-            "audio_reviewed":False,"full_motion_reviewed":False}
+            "audio_reviewed":False,"full_motion_reviewed":False,
+            "r5_pass":False,"r7_authorized":False}
 
 def submit_review(repo, delivery_id):
     repo = Path(repo).resolve()
