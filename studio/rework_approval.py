@@ -77,7 +77,9 @@ def approve(repo, *, run_id, selected_ids, allowed_files, approved_by, inbox_id)
     if task.get("status")!="draft_unverified" or task.get("r5_scope")!="sampled_frames_only":
         raise ValueError("Only sampled-frame unverified findings can be dispatched for rework")
     recommendations = recommended_files(task["project_id"])
-    if recommendations and not set(allowed_files).issubset(set(recommendations)):
+    if not recommendations:
+        raise ValueError("Project has no approved editable-file policy")
+    if not set(allowed_files).issubset(set(recommendations)):
         raise ValueError("Editable files exceed project-approved policy")
     inbox=Path(repo).resolve()/"work/r4_inbox"/inbox_id
     return dispatch(run,selected_ids=selected_ids,approved_by=approved_by,
