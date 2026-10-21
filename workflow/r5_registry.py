@@ -38,9 +38,10 @@ def select_provider(name):
             "; implemented providers: " + ", ".join(sorted(registered)))
     return registered[name]
 
-def run_review(provider_name, workdir, artifact_root, *, model=None):
+def run_review(provider_name, workdir, artifact_root, *, model=None, **provider_options):
     adapter = select_provider(provider_name)
     options = {"model": model} if model is not None else {}
+    options.update(provider_options)
     result = adapter.review(workdir, artifact_root, **options)
     if not isinstance(result, dict):
         raise ValueError("R5 provider did not return an audit result")
