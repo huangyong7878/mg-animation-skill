@@ -68,3 +68,21 @@ async function loadTasks(){
  }catch(e){select.replaceChildren();select.textContent="加载任务失败";}
 }
 loadTasks();
+
+async function refreshHistory(){
+ const target=document.getElementById("job-history");
+ try{
+  const response=await fetch("/api/r4/history");
+  if(!response.ok)throw new Error("HTTP "+response.status);
+  const data=await response.json();
+  target.replaceChildren();
+  if(!data.jobs.length){target.textContent="尚无 R4 运行记录";return;}
+  for(const job of data.jobs){
+   const item=document.createElement("div");item.className="item";
+   item.textContent="#"+job.id+" · "+job.task_id+" · "+job.status;
+   target.append(item);
+  }
+ }catch(error){target.textContent="读取历史失败："+String(error);}
+}
+document.getElementById("refresh-history").addEventListener("click",refreshHistory);
+refreshHistory();
