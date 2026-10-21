@@ -47,7 +47,7 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     parts = [{"type": "text", "text": (
         "你是独立 R5 视觉审核员。下面是按时间排列的抽样帧，不是视频或音频。"
         "根据真实画面评价颜色身份、分支、节点、可读性；按 P0/P1/P2 给出问题、时间、证据。"
-        "不得声称听过音频或检查了全部连续运动。只输出中文观察意见，不要生成 PASS。"
+        "不得声称听过音频或检查了全部连续运动。不要生成 PASS。"\n        "只输出 JSON 对象，包含 findings 数组；每项必须有 id, severity(P0/P1/P2), shot_id, expected, observed, fix_request, evidence，以及可选 timestamp_s。"\n        "每个问题必须有真实可观察帧证据；没有问题则 findings 为空数组。不要编造证据。"
         "\\nDirector spec: " + json.dumps(spec, ensure_ascii=False) +
         "\\nVisual checks: " + json.dumps(sorted(required_checks(spec)), ensure_ascii=False) +
         "\\nFrames: " + str(len(frames)) + " sampled at 2 frames/sec."
@@ -74,6 +74,29 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     if not isinstance(observations, str) or not observations.strip():
         raise ValueError("Empty model observations")
     (dest / "observations.md").write_text(observations, encoding="utf-8")
+    # The provider is never authoritative. Parse structured findings as a
+    # candidate only; preserve raw text if the model does not return valid JSON.
+    from jsonschema import Draft202012Validator
+    snippet = observations.strip()
+    if snippet.startswith("```"):
+        snippet = snippet.split("\\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        parsed = json.loads(snippet)
+    except (ValueError, TypeError):
+        parsed = None
+    if isinstance(parsed, dict) and isinstance(parsed.get("findings"), list):
+        proposed = {
+            "schema_version": "1.0", "scope": "sampled_frames_only",
+            "spec_sha256": state["spec_sha256"],
+            "implementation_commit": delivery["implementation_commit"],
+            "video_sha256": sha(video), "findings": parsed["findings"],
+        }
+        schema = read_json(root.parent.parent.parent.parent / "contracts" / "r5_rework_candidate.schema.json") if False else None
+        from workflow.r5_rework import SCHEMA
+        schema = read_json(SCHEMA)
+        if Draft202012Validator(schema).is_valid(proposed):
+            write_json(dest / "findings_candidate.json", proposed)
+
     evidence = {"provider": "deepseek", "model": model, "scope": "sampled_frames_only",
                 "sampled_frames": len(frames), "video_sha256": sha(video),
                 "implementation_commit": delivery["implementation_commit"],
