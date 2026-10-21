@@ -161,7 +161,7 @@ def create_handler(repo, token):
                 requested = self.headers.get("Range")
                 start, end = 0, total - 1
                 if requested:
-                    m = re.fullmatch(r"bytes=(\\d+)-(\\d*)", requested)
+                    m = re.fullmatch(r"bytes=(\d+)-(\d*)", requested)
                     if not m:
                         return self._json(416, {"error": "Unsupported range"})
                     start = int(m.group(1))
