@@ -47,7 +47,9 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
     parts = [{"type": "text", "text": (
         "你是独立 R5 视觉审核员。下面是按时间排列的抽样帧，不是视频或音频。"
         "根据真实画面评价颜色身份、分支、节点、可读性；按 P0/P1/P2 给出问题、时间、证据。"
-        "不得声称听过音频或检查了全部连续运动。不要生成 PASS。"\n        "只输出 JSON 对象，包含 findings 数组；每项必须有 id, severity(P0/P1/P2), shot_id, expected, observed, fix_request, evidence，以及可选 timestamp_s。"\n        "每个问题必须有真实可观察帧证据；没有问题则 findings 为空数组。不要编造证据。"
+        "不得声称听过音频或检查了全部连续运动。不要生成 PASS。"
+        "只输出 JSON 对象，包含 findings 数组；每项必须有 id, severity(P0/P1/P2), shot_id, expected, observed, fix_request, evidence，以及可选 timestamp_s。"
+        "每个问题必须有真实可观察帧证据；没有问题则 findings 为空数组。不要编造证据。"
         "\\nDirector spec: " + json.dumps(spec, ensure_ascii=False) +
         "\\nVisual checks: " + json.dumps(sorted(required_checks(spec)), ensure_ascii=False) +
         "\\nFrames: " + str(len(frames)) + " sampled at 2 frames/sec."
