@@ -11,9 +11,12 @@ def review_history(repo):
     if not base.is_dir():
         return []
     reports = []
-    for workdir in sorted(base.iterdir()):
-        if not workdir.is_dir() or not WORKDIR_ID.fullmatch(workdir.name):
-            continue
+    candidates = [p for p in base.iterdir() if p.is_dir() and WORKDIR_ID.fullmatch(p.name)]
+    runs = Path(repo).resolve() / "work/mg_studio/r5_runs"
+    if runs.is_dir():
+        candidates.extend(p for p in runs.iterdir()
+                          if p.is_dir() and p.name.startswith("review_"))
+    for workdir in sorted(candidates):
         source = workdir / "r5_deepseek"
         evidence_file = source / "evidence.json"
         text_file = source / "observations.md"
