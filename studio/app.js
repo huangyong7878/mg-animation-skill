@@ -172,3 +172,35 @@ async function refreshDeliveries(){
 }
 document.getElementById("refresh-deliveries").addEventListener("click",refreshDeliveries);
 refreshDeliveries();
+
+async function refreshR5(){
+ const root=document.getElementById("r5-history");root.textContent="加载中…";
+ try{
+  const response=await fetch("/api/r5/history");
+  if(!response.ok)throw new Error("HTTP "+response.status);
+  const records=(await response.json()).reviews;
+  root.replaceChildren();
+  if(!records.length){root.textContent="还没有可核验来源的 DeepSeek 审核记录";return;}
+  for(const record of records){
+   const box=document.createElement("div");box.className="item";
+   const label=document.createElement("strong");label.textContent=record.id+" · "+record.scope;
+   box.append(label);
+   const meta=document.createElement("p");
+   meta.textContent="R0："+record.r0_status+" · 音频未审核 · 连续运动未审核 · 正式 R5 Pending";
+   box.append(meta);
+   const details=document.createElement("details");
+   const summary=document.createElement("summary");
+   summary.textContent="查看审核证据与观察意见";
+   details.append(summary);
+   const provenance=document.createElement("p");
+   provenance.textContent="源码："+(record.source_sha||"未知")+" · 视频 SHA256："+(record.video_sha256||"未知")+
+      " · 抽帧："+(record.sampled_frames??"未知")+" · Token："+(record.token_usage??"未知");
+   details.append(provenance);
+   const observations=document.createElement("pre");
+   observations.textContent=record.observations;
+   details.append(observations);box.append(details);root.append(box);
+  }
+ }catch(e){root.textContent="审核记录加载失败："+String(e);}
+}
+document.getElementById("r5-refresh").addEventListener("click",refreshR5);
+refreshR5();
