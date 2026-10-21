@@ -297,3 +297,68 @@ document.getElementById("delete-key").addEventListener("click",async()=>{
  catch(e){settingsOutput.textContent=String(e);}
 });
 refreshSettings().catch(e=>settingsOutput.textContent=String(e));
+
+let reworkRuns=[];
+const reworkSelect=document.getElementById("rework-run");
+const reworkFindings=document.getElementById("rework-findings");
+const reworkOutput=document.getElementById("rework-output");
+async function loadReworkRuns(){
+ try{
+  const response=await fetch("/api/r5/rework-candidates");
+  if(!response.ok)throw new Error("HTTP "+response.status);
+  reworkRuns=(await response.json()).runs;
+  reworkSelect.replaceChildren();
+  for(const run of reworkRuns){
+    const option=document.createElement("option");
+    option.value=run.id;
+    option.textContent=run.delivery_id+" · "+run.findings.length+" 项候选问题";
+    reworkSelect.append(option);
+  }
+  if(!reworkRuns.length)reworkOutput.textContent="暂无有效的结构化返工候选";
+  renderFindings();
+ }catch(e){reworkOutput.textContent=String(e);}
+}
+function renderFindings(){
+ reworkFindings.replaceChildren();
+ document.getElementById("rework-confirm").checked=false;
+ const run=reworkRuns.find(x=>x.id===reworkSelect.value);
+ if(!run)return;
+ const origin=document.createElement("p");
+ origin.textContent="证据范围："+run.scope+" · 实现 SHA："+run.source_sha+" · 视频 SHA256："+run.video_sha256;
+ reworkFindings.append(origin);
+ for(const finding of run.findings){
+   const box=document.createElement("div");box.className="item";
+   const label=document.createElement("label");
+   const choice=document.createElement("input");choice.type="checkbox";choice.className="rework-select";
+   choice.value=finding.id;
+   label.append(choice,document.createTextNode(" "+finding.id+" · "+finding.severity+" · "+(finding.timestamp_s??"时间未知")+"s"));
+   const info=document.createElement("p");
+   info.textContent="观察："+finding.observed+"\n证据："+finding.evidence+"\n预期："+finding.expected+"\n修复："+finding.fix_request;
+   info.style.whiteSpace="pre-wrap";box.append(label,info);reworkFindings.append(box);
+ }
+}
+reworkSelect.addEventListener("change",renderFindings);
+document.getElementById("rework-refresh").addEventListener("click",loadReworkRuns);
+document.getElementById("rework-dispatch").addEventListener("click",async()=>{
+ const run=reworkRuns.find(x=>x.id===reworkSelect.value);
+ const chosen=[...document.querySelectorAll(".rework-select:checked")].map(x=>x.value);
+ if(!run||!chosen.length||!document.getElementById("rework-confirm").checked){
+  reworkOutput.textContent="请核对证据、选择缺陷并勾选人工审批确认";return;
+ }
+ const files=document.getElementById("rework-allowed-files").value.split("\n").map(x=>x.trim()).filter(Boolean);
+ const inbox=document.getElementById("rework-inbox-id").value.trim();
+ if(!files.length||!inbox){reworkOutput.textContent="请填写允许修改的源码及新任务名称";return;}
+ const button=document.getElementById("rework-dispatch");button.disabled=true;
+ try{
+   const response=await fetch("/api/r5/dispatch-rework",{method:"POST",
+    headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},
+    body:JSON.stringify({run_id:run.id,selected_ids:chosen,allowed_files:files,
+     inbox_id:inbox,confirm_rework_approval:true})});
+   const result=await response.json();
+   reworkOutput.textContent=response.ok?
+     "任务已派发（尚未执行 R4）\n"+JSON.stringify(result,null,2):
+     "BLOCKED · "+(result.error||JSON.stringify(result));
+ }catch(e){reworkOutput.textContent=String(e);}
+ finally{button.disabled=false;}
+});
+loadReworkRuns();
