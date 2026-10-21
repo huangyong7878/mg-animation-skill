@@ -1,6 +1,7 @@
 """MG Studio MVP: loopback-only read-only project dashboard and Codex probe."""
 import argparse
 import json
+import re
 import secrets
 import uuid
 import time
@@ -140,6 +141,54 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/deliveries":
+                try:
+                    from studio.delivery_viewer import list_deliveries
+                except ModuleNotFoundError:
+                    from delivery_viewer import list_deliveries
+                return self._json(200, {"deliveries": list_deliveries(repo)})
+            match = re.fullmatch(r"/api/deliveries/([^/]+)/video", path)
+            if match:
+                try:
+                    from studio.delivery_viewer import verified_video
+                except ModuleNotFoundError:
+                    from delivery_viewer import verified_video
+                try:
+                    video = verified_video(repo, match.group(1))
+                except (ValueError, OSError, KeyError, TypeError):
+                    return self._json(404, {"error": "Verified video unavailable"})
+                total = video.stat().st_size
+                requested = self.headers.get("Range")
+                start, end = 0, total - 1
+                if requested:
+                    m = re.fullmatch(r"bytes=(\\d+)-(\\d*)", requested)
+                    if not m:
+                        return self._json(416, {"error": "Unsupported range"})
+                    start = int(m.group(1))
+                    end = min(int(m.group(2)), total - 1) if m.group(2) else total - 1
+                    if start >= total or end < start:
+                        return self._json(416, {"error": "Range not satisfiable"})
+                self.send_response(206 if requested else 200)
+                self.send_header("Content-Type", "video/mp4")
+                self.send_header("Content-Length", str(end-start+1))
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                if requested:
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{total}")
+                self.end_headers()
+                try:
+                    with video.open("rb") as stream:
+                        stream.seek(start)
+                        remaining = end-start+1
+                        while remaining:
+                            chunk = stream.read(min(65536,remaining))
+                            if not chunk: break
+                            self.wfile.write(chunk)
+                            remaining -= len(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                return
             if path == "/api/delivery/preflight":
                 try:
                     from studio.delivery import preflight
