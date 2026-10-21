@@ -10,7 +10,7 @@ The API never sends a saved credential back to the browser. The local
 nonsecret settings file is `work/mg_studio/settings.json` with owner-only
 permissions; it is not part of the repository's tracked source. The
 credential is saved via the macOS `security` utility, provided over stdin,
-and used only during an explicitly confirmed R5 request.
+without exposing it in shell arguments, and used only during an explicitly confirmed R5 request.
 
 This does not provide a token budget, free retries, or automatic publishing.
 DeepSeek currently reviews **sampled frames only** and never generates
