@@ -86,3 +86,37 @@ async function refreshHistory(){
 }
 document.getElementById("refresh-history").addEventListener("click",refreshHistory);
 refreshHistory();
+
+let deliveryReady=false;
+const deliveryOutput=document.getElementById("delivery-output");
+const deliveryBuild=document.getElementById("delivery-build");
+function canBuild(){deliveryBuild.disabled=!deliveryReady||!document.getElementById("delivery-confirm").checked;}
+document.getElementById("delivery-confirm").addEventListener("change",canBuild);
+document.getElementById("delivery-check").addEventListener("click",async()=>{
+ deliveryReady=false;canBuild();deliveryOutput.textContent="正在校验双锁和输入媒体…";
+ try{
+  const result=await fetch("/api/delivery/preflight").then(r=>r.json());
+  deliveryReady=result.ready;
+  deliveryOutput.textContent=result.ready?
+   "PASS · 源码："+result.source_sha+"\\n已锁定媒体校验通过。成片仍需独立 R5 审核。":
+   "BLOCKED\\n"+result.issues.join("\\n");
+  canBuild();
+ }catch(e){deliveryOutput.textContent=String(e);}
+});
+deliveryBuild.addEventListener("click",async()=>{
+ if(!deliveryReady||!document.getElementById("delivery-confirm").checked)return;
+ deliveryBuild.disabled=true;deliveryReady=false;
+ deliveryOutput.textContent="正在启动正式构建…";
+ try{
+  const resp=await fetch("/api/delivery/build",{method:"POST",headers:{"X-MG-CSRF":csrf,"Content-Type":"application/json"},body:"{}"});
+  const info=await resp.json();
+  if(!resp.ok){deliveryOutput.textContent=info.issues?.join("\\n")||info.error||"构建已阻断";return;}
+  const poll=async()=>{
+   try{
+    const result=await fetch("/api/delivery/status").then(r=>r.json());
+    deliveryOutput.textContent="状态："+result.status+"\\n"+JSON.stringify(result.result||{},null,2);
+    if(result.status==="running")setTimeout(poll,2000);
+   }catch(e){deliveryOutput.textContent=String(e);}
+  };poll();
+ }catch(e){deliveryOutput.textContent=String(e);}
+});
