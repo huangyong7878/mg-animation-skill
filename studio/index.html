@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MG Studio</title><style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e6edf5;background:#101827}
+body{max-width:960px;margin:48px auto;padding:0 24px}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #344055;padding-bottom:18px}
+h1{font-size:30px;margin:0}h2{font-size:19px}p{color:#adbdd0;line-height:1.65}
+main{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px}
+section{background:#1a2538;border:1px solid #334257;border-radius:16px;padding:22px}
+.wide{grid-column:1/-1}.pill{background:#29394e;padding:6px 10px;border-radius:20px;font-size:12px}
+.item{padding:12px;background:#101d30;border-radius:9px;margin:9px 0}
+button{background:#78aaf9;border:0;color:#061525;font-weight:700;border-radius:9px;padding:11px 17px;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#c6e3c9;font-size:12px}
+small{color:#91a6c0}@media(max-width:680px){main{grid-template-columns:1fr}}
+</style></head><body>
+<header><div><h1>MG Studio</h1><p>本地多模型动画工作台 · MVP</p></div><span class="pill">只读安全模式</span></header>
+<main>
+<section class="wide"><h2 id="project">Pilot 001</h2><p>当前阶段：R4 返工交接。此版本只展示项目状态和执行 Codex 只读自检。</p><small>Script Lock / Voice Lock 不会由本界面修改；R7 发布保持禁止。</small></section>
+<section><h2>R0 工作区</h2><div id="workspaces">读取中…</div></section>
+<section><h2>R4 · Codex</h2><p id="codex">检测中…</p><button id="probe" type="button">运行 Codex 只读测试</button><pre id="probe-output"></pre></section>
+<section class="wide"><h2>后续版本</h2><p>API Key 安全存储、R2/R3 角色配置、R4 受控代码修改、R5 模型审核、视频预览与审批操作将在完成权限和任务持久化后逐步启用。</p></section>
+</main><script src="/app.js"></script></body></html>
