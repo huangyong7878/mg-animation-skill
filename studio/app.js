@@ -120,3 +120,55 @@ deliveryBuild.addEventListener("click",async()=>{
   };poll();
  }catch(e){deliveryOutput.textContent=String(e);}
 });
+
+async function refreshDeliveries(){
+ const list=document.getElementById("delivery-list");
+ const details=document.getElementById("delivery-details");
+ const video=document.getElementById("delivery-video");
+ video.pause();video.removeAttribute("src");video.hidden=true;details.textContent="";
+ try{
+  const response=await fetch("/api/deliveries");
+  if(!response.ok)throw Error("HTTP "+response.status);
+  const data=await response.json();
+  list.replaceChildren();
+  if(!data.deliveries.length){list.textContent="暂无 Stage D 本地交付包";return;}
+  const wrapper=document.createElement("div");wrapper.className="table-scroll";
+  const table=document.createElement("table");table.className="deliveries-table";
+  const header=document.createElement("thead");
+  const headerRow=document.createElement("tr");
+  for(const title of ["版本","创建时间","交付状态","R5 审核","媒体校验","操作"]){
+    const th=document.createElement("th");th.textContent=title;headerRow.append(th);
+  }
+  header.append(headerRow);table.append(header);
+  const body=document.createElement("tbody");
+  for(const item of data.deliveries){
+   const row=document.createElement("tr");
+   const addCell=value=>{const cell=document.createElement("td");cell.textContent=value;row.append(cell);return cell;};
+   const version=addCell(item.version||item.id);
+   const sub=document.createElement("small");sub.textContent=item.id;version.append(document.createElement("div"),sub);
+   const creation=item.time?new Date(item.time).toLocaleString("zh-CN"):"未知";
+   addCell(creation);
+   addCell(item.status||"未知");
+   addCell(item.review_status||"未确认");
+   addCell(item.manifest_ok?"SHA256 通过":"校验失败");
+   const actions=addCell("");
+   if(item.manifest_ok&&item.video_url){
+     const button=document.createElement("button");button.type="button";button.textContent="查看视频";
+     button.addEventListener("click",()=>{
+       video.src=item.video_url;video.hidden=false;video.load();
+       details.textContent="交付："+item.id+"\n创建时间："+creation+
+        "\n时间来源："+(item.time_basis==="filesystem_birthtime"?"文件系统创建时间":"未知")+
+        "\n实现版本："+item.source_sha+"\n导演规格："+item.spec_sha256+
+        "\n媒体文件："+item.media_count+"\nR5："+item.review_status+"；R7 未授权。";
+     });
+     actions.append(button);
+   }else{
+     const note=document.createElement("small");note.textContent=(item.errors||[]).join("; ")||"不可播放";actions.append(note);
+   }
+   body.append(row);
+  }
+  table.append(body);wrapper.append(table);list.append(wrapper);
+ }catch(e){list.textContent="读取交付包失败："+String(e);}
+}
+document.getElementById("refresh-deliveries").addEventListener("click",refreshDeliveries);
+refreshDeliveries();
