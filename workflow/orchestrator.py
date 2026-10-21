@@ -463,6 +463,14 @@ def build_parser():
     p.add_argument("--workdir", required=True)
     p.add_argument("--findings", required=True, help="R5 evidence-bound findings candidate JSON")
     p.add_argument("--artifact-root", required=True)
+    p = sub.add_parser("dispatch-rework")
+    p.add_argument("--workdir", required=True)
+    p.add_argument("--inbox", required=True)
+    p.add_argument("--artifact-root", required=True)
+    p.add_argument("--approve-id", action="append", dest="selected_ids", required=True)
+    p.add_argument("--approved-by", required=True)
+    p.add_argument("--repo", help="Optional GitHub issue dispatch (writes remotely)")
+    p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("record-qa")
     p.add_argument("--workdir", required=True)
     p.add_argument("--qa", required=True)
@@ -510,6 +518,11 @@ def main(argv=None):
         elif args.command == "rework-draft":
             from workflow.r5_rework import prepare_rework
             result = prepare_rework(args.workdir, args.findings, args.artifact_root)
+        elif args.command == "dispatch-rework":
+            from workflow.r4_dispatch import dispatch
+            result = dispatch(args.workdir, selected_ids=args.selected_ids,
+                              approved_by=args.approved_by, inbox=args.inbox,
+                              artifact_root=args.artifact_root, repository=args.repo, dry_run=args.dry_run)
         elif args.command == "record-qa":
             if args.max_attempts < 1:
                 parser.error("--max-attempts must be positive")
