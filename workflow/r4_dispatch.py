@@ -7,8 +7,9 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 def dispatch(workdir, *, selected_ids, approved_by, inbox, artifact_root, repository=None,
-             dry_run=False, runner=None):
+             dry_run=False, runner=None, allowed_files=None, max_runtime_seconds=1200):
     from workflow import orchestrator as r0
+    from studio.r4_runner import valid_path
     root, state, spec = r0.load_state(workdir)
     if state["status"] != "review_pending":
         raise ValueError("Rework dispatch requires review_pending state")
@@ -50,6 +51,10 @@ def dispatch(workdir, *, selected_ids, approved_by, inbox, artifact_root, reposi
     if len(all_findings) != len(task["findings"]) or any(i not in all_findings for i in selected_ids):
         raise ValueError("Approved finding IDs not present in candidate")
     chosen = [f for f in task["findings"] if f["id"] in selected_ids]
+    if not allowed_files or any(not valid_path(f) for f in allowed_files):
+        raise ValueError("Specify safe --allow-file entries explicitly")
+    if not 30 <= max_runtime_seconds <= 1800:
+        raise ValueError("Invalid R4 timeout")
     out = Path(inbox).resolve()
     if out.exists():
         raise ValueError("R4 task destination exists; refusing overwrite or duplicate dispatch")
@@ -70,6 +75,8 @@ def dispatch(workdir, *, selected_ids, approved_by, inbox, artifact_root, reposi
         "source_video_sha256": task["video_sha256"],
         "source_task_sha256": digest(draft_path),
         "production_lock_hashes": lock_hashes,
+        "execution_policy": {"allowed_files": list(dict.fromkeys(allowed_files)),
+                             "max_runtime_seconds": max_runtime_seconds},
         "approved_finding_ids": selected_ids,
         "findings": chosen,
         "required_delivery": ["new_implementation_commit", "new_stage_d_render",

@@ -49,7 +49,8 @@ class DispatchTests(unittest.TestCase):
 
     def go(self, **kwargs):
         args={"selected_ids":["p1-01"],"approved_by":"Project owner",
-              "inbox":self.inbox,"artifact_root":self.artifact}
+              "inbox":self.inbox,"artifact_root":self.artifact,
+              "allowed_files":["scripts/primitives/orderflow.py"]}
         args.update(kwargs)
         with patch("workflow.orchestrator.load_state",
                    return_value=(self.root,self.state,self.spec)):
