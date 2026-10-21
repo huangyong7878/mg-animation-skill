@@ -1,6 +1,7 @@
 """Read-only, provenance-checked Stage D delivery discovery and media selection."""
 import json
 import re
+import sys
 from pathlib import Path
 
 ID = re.compile(r"^stage_d_(?:studio_[a-f0-9]{16}|delivery(?:_v[0-9]+)?)$")
@@ -15,6 +16,9 @@ def resolve_delivery(repo, identifier):
     return folder
 
 def inspect(repo, identifier):
+    repo_root = str(Path(repo).resolve())
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
     from workflow.media_manifest import verify_manifest
     folder = resolve_delivery(repo, identifier)
     delivery = json.loads((folder / "delivery.json").read_text())
