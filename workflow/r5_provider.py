@@ -91,7 +91,6 @@ def review_deepseek(workdir, artifact_root, *, model="deepseek-flash",
             "implementation_commit": delivery["implementation_commit"],
             "video_sha256": sha(video), "findings": parsed["findings"],
         }
-        schema = read_json(root.parent.parent.parent.parent / "contracts" / "r5_rework_candidate.schema.json") if False else None
         from workflow.r5_rework import SCHEMA
         schema = read_json(SCHEMA)
         if Draft202012Validator(schema).is_valid(proposed):
