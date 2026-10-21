@@ -53,7 +53,7 @@ def execute(repo, assignment, on_event=None):
     """Yield progress through callback; never touch source checkout working tree."""
     repo = Path(repo).resolve()
     task = validate_assignment(repo, assignment)
-    base_commit = _git(repo, "rev-parse", "HEAD")
+    base_commit = task["source_implementation_commit"]
     if _git(repo, "status", "--porcelain"):
         # Local user workspace can have untracked artifacts; worktree still isolates it.
         pass
@@ -85,7 +85,7 @@ def execute(repo, assignment, on_event=None):
         tracked = _git(tree, "diff", "--name-only").splitlines()
         untracked = _git(tree, "ls-files", "--others", "--exclude-standard").splitlines()
         changed = tracked + untracked
-        forbidden = [p for p in changed if p in LOCKED_PREFIXES or p.startswith((".git", "approvals/", "media/"))]
+        forbidden = [p for p in changed if p in LOCKED_PREFIXES or not (p == "scripts/primitives/orderflow.py" or p.startswith("tests/"))]
         if forbidden:
             raise ValueError("Locked or disallowed files touched: " + ", ".join(forbidden))
         # Codex should modify implementation only, not commit independently.
