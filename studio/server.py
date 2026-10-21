@@ -2,6 +2,7 @@
 import argparse
 import json
 import secrets
+import uuid
 import time
 import subprocess
 import threading
@@ -92,6 +93,20 @@ def create_handler(repo, token):
                 r4.update(status="failed", output=type(exc).__name__ + ": " + str(exc))
                 store.finish(r4["job_id"], "failed", {"error": type(exc).__name__})
 
+    rendering = {"status": "idle", "result": None}
+    def run_render(run_id):
+        try:
+            try:
+                from studio.delivery import run_build
+            except ModuleNotFoundError:
+                from delivery import run_build
+            result = run_build(repo, run_id)
+            with job_lock:
+                rendering.update(status=result["status"], result=result)
+        except Exception as exc:
+            with job_lock:
+                rendering.update(status="failed", result={"error":str(exc)[:500]})
+
     class Handler(BaseHTTPRequestHandler):
         def _reply(self, status, body, content_type="application/json; charset=utf-8"):
             data = body.encode("utf-8") if isinstance(body, str) else body
@@ -125,6 +140,15 @@ def create_handler(repo, token):
                                    "application/javascript; charset=utf-8")
             if path == "/api/status":
                 return self._json(200, project_snapshot(repo))
+            if path == "/api/delivery/preflight":
+                try:
+                    from studio.delivery import preflight
+                except ModuleNotFoundError:
+                    from delivery import preflight
+                return self._json(200, preflight(repo))
+            if path == "/api/delivery/status":
+                with job_lock:
+                    return self._json(200, dict(rendering))
             if path == "/api/r4/history":
                 return self._json(200, {"jobs": store.list()})
             if path == "/api/r4/tasks":
@@ -145,7 +169,7 @@ def create_handler(repo, token):
             if not self._origin_ok() or self.headers.get("X-MG-CSRF") != token:
                 return self._json(403, {"error": "forbidden"})
             path = urlparse(self.path).path
-            if path not in ("/api/codex-probe", "/api/r4/start"):
+            if path not in ("/api/codex-probe", "/api/r4/start", "/api/delivery/build"):
                 return self._json(404, {"error": "not found"})
             try:
                 size = int(self.headers.get("Content-Length", "0"))
@@ -154,6 +178,21 @@ def create_handler(repo, token):
             if size < 0 or size > MAX_BODY:
                 return self._json(413, {"error": "request too large"})
             self._request_body = self.rfile.read(size)
+            if path == "/api/delivery/build":
+                try:
+                    from studio.delivery import preflight
+                except ModuleNotFoundError:
+                    from delivery import preflight
+                check = preflight(repo)
+                if not check["ready"]:
+                    return self._json(422, check)
+                with job_lock:
+                    if rendering["status"] != "idle":
+                        return self._json(409, {"error":"Render already started this session"})
+                    identifier = uuid.uuid4().hex[:16]
+                    rendering.update(status="running", result=None)
+                threading.Thread(target=run_render, args=(identifier,), daemon=True).start()
+                return self._json(202, {"status":"running", "run_id":identifier})
             if path == "/api/r4/start":
                 if not _which("codex"):
                     return self._json(422, {"error": "Codex CLI not found"})
