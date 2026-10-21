@@ -35,9 +35,6 @@ def check(repo,tree,base_commit):
     if any(actual.get(k)!=baseline.get(k) for k in EVENTS):
         issues.append("R3 order appearance event constants modified")
     card_defs=[n for n in ast.walk(draw) if isinstance(n,ast.FunctionDef) and n.name=="card"]
-    if len(card_defs)!=1 or "appear_t" not in card_defs[0].args.args[-5:].__str__():
-        # Name lookup below is explicit so AST object representations cannot pass the gate.
-        pass
     if len(card_defs)!=1 or "appear_t" not in [a.arg for a in card_defs[0].args.args]:
         issues.append("Card fade no longer accepts approved R3 appearance time")
     else:
