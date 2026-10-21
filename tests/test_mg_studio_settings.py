@@ -21,14 +21,12 @@ class SettingsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             settings.validate({**settings.DEFAULT,"api_key":"should-not-be-here"})
 
-    def test_key_saved_only_via_security_stdin(self):
-        class Response:
-            returncode=0
-        with patch("studio.settings._security",return_value=Response()) as call:
+    def test_key_uses_native_keychain_not_security_cli(self):
+        with patch("studio.settings._write_keychain_native") as native, \
+             patch("studio.settings._security") as cli:
             settings.save_key("sk-example")
-            args=call.call_args.args
-            self.assertNotIn("sk-example",args)
-            self.assertIn("sk-example",call.call_args.kwargs["input_text"])
+        native.assert_called_once_with("sk-example")
+        cli.assert_not_called()
 
 if __name__=="__main__":
     unittest.main()
