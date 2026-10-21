@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from studio.delivery_viewer import resolve_delivery, inspect, list_deliveries, verified_video
+from studio.delivery_viewer import resolve_delivery, inspect, list_deliveries, verified_video, display_version
 
 class DeliveryViewerTests(unittest.TestCase):
     def setUp(self):
@@ -28,6 +28,16 @@ class DeliveryViewerTests(unittest.TestCase):
         self.assertIn('r"bytes=(\\d+)-(\\d*)"', source)
         self.assertIsNotNone(re.fullmatch(r"bytes=(\\d+)-(\\d*)", "bytes=0-"))
         self.assertIsNotNone(re.fullmatch(r"bytes=(\\d+)-(\\d*)", "bytes=1024-2047"))
+
+    def test_version_and_review_are_not_inferred_from_ready_for_qa(self):
+        self.assertEqual(display_version("stage_d_delivery"), "初版")
+        self.assertEqual(display_version("stage_d_delivery_v2"), "V2")
+        self.assertTrue(display_version("stage_d_studio_0123456789abcdef").startswith("Studio 构建"))
+        with patch("workflow.media_manifest.verify_manifest", return_value=[]):
+            result = inspect(self.repo, self.folder.name)
+            self.assertEqual(result["review_status"], "待独立审核")
+            self.assertIn(result["time_basis"], ("filesystem_birthtime", "unknown"))
+            self.assertFalse(result["r5_pass"])
 
     def test_rejects_traversal(self):
         for value in ("../etc/passwd","stage_d_studio_bad","../../private"):
