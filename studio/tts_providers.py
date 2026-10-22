@@ -4,6 +4,7 @@ import asyncio
 import dataclasses
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -67,9 +68,15 @@ async def synthesize_preview(request: VoiceRequest, destination: Path, *,
         raise ValueError("Expected 1..5000 characters of narration")
     if not request.voice.strip() or "\\x00" in request.voice:
         raise ValueError("Invalid voice")
+    if not re.fullmatch(r"[+-](?:[0-9]|[1-9][0-9]|100)%", request.rate):
+        raise ValueError("Rate must be a signed percentage between -100% and +100%")
     if provider not in _PROVIDERS:
         raise TTSError(f"Unsupported TTS provider: {provider}; no fallback")
     destination = Path(destination)
+    if not destination.is_absolute():
+        destination = Path.cwd() / destination
+    if any(parent.is_symlink() for parent in destination.parents):
+        raise ValueError("Symlinked preview parents are forbidden")
     if destination.is_symlink() or destination.exists():
         raise FileExistsError("Preview destination must be new")
     # Refuse obvious formal locked-media targets even if called directly.
@@ -84,7 +91,7 @@ async def synthesize_preview(request: VoiceRequest, destination: Path, *,
         raw = Path(temp) / "generated.audio"
         wav = Path(temp) / "voice.wav"
         try:
-            await _PROVIDERS[provider].synthesize(request, raw)
+            await asyncio.wait_for(_PROVIDERS[provider].synthesize(request, raw), timeout=90)
         except Exception as exc:
             raise TTSError(f"{provider} synthesis failed ({type(exc).__name__})") from exc
         if not raw.is_file() or raw.stat().st_size == 0:
