@@ -73,7 +73,7 @@ async def synthesize_preview(request: VoiceRequest, destination: Path, *,
     if destination.is_symlink() or destination.exists():
         raise FileExistsError("Preview destination must be new")
     # Refuse obvious formal locked-media targets even if called directly.
-    if destination.name in {"media", "approvals", "stage_d"}:
+    if destination.name in {"media", "approvals", "stage_d"} or any(\n        part in {"approvals", "formal_r4", "formal_r4_v2"} for part in destination.parts\n    ):
         raise ValueError("Refusing reserved production output directory")
     if shutil.which(ffmpeg) is None:
         raise TTSError("ffmpeg is required for PCM WAV normalization")
