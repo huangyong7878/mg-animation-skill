@@ -108,3 +108,7 @@ python workflow/check_handoff.py \
 将 **R5** 替换成任意 **R0–R7**，并提供该角色必要的真实资料。对不能联网/读仓库的平台，请上传相应的 `role_pack.py` ZIP 与媒体；仅有这段启动话语不等于模型已经获取文件。
 
 完整 8 角色提示词、步骤、命令、媒体与版本约定：**[docs/MULTI_MODEL_PLAYBOOK.md](docs/MULTI_MODEL_PLAYBOOK.md)**。
+
+## 配音后端与 Agent C 环境约束（Story #37）
+
+**当前默认 Edge TTS（zh-CN-XiaoxiaoNeural），保持 Provider 可插拔；Azure Speech 不作为默认前提。** ChatGPT 负责 Story #37 的 TTS 适配器和预览集成。Agent C 的环境无法访问 Edge，因此 Agent C 只负责动画/媒体实现，不承担在线 Edge 合成测试。正式流程仍是 Script Lock → Edge 试听 → 人类 Voice Lock → Stage D → R5 → 人类 R7；更换音频需重新审批 Voice Lock。详细规则和本地 Mac 测试见 [docs/TTS_PROVIDER_POLICY.md](docs/TTS_PROVIDER_POLICY.md)。Story 尚未通过真实 Edge 联网验收。
