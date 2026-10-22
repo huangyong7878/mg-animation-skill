@@ -27,6 +27,16 @@ class TTSBoundaryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 asyncio.run(synthesize_preview(VoiceRequest(" "), Path(tmp)/"preview"))
 
+    def test_reserved_production_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "reserved"):
+                asyncio.run(synthesize_preview(VoiceRequest("你好"), Path(tmp)/"approvals"))
+
+    def test_unimplemented_gemini_never_falls_back_to_edge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(TTSError, "Unsupported TTS provider"):
+                asyncio.run(synthesize_preview(VoiceRequest("你好"), Path(tmp)/"candidate", provider="gemini"))
+
     def test_requires_ffmpeg_without_network(self):
         with tempfile.TemporaryDirectory() as tmp, patch("studio.tts_providers.shutil.which", return_value=None):
             with self.assertRaisesRegex(TTSError, "ffmpeg"):
