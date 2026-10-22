@@ -637,3 +637,7 @@ python workflow/media_manifest.py verify \
 - [试点导演规格示例](../examples/workflow_orders_spec.json)
 
 > 本手册描述的每项命令都以此仓库现有 CLI 入口为依据；路径以仓库根目录为工作目录。大写占位符、`PATH_TO_SCENE.json`、`episode_001`、`IMPLEMENTATION_PR_NUMBER` 需要替换成真实值，不是已经生成的资源或可以直接运行的真实项目。
+
+## 当前语音后端协作增补（Story #37，2026-10-22）
+
+默认配音候选已调整为 **Edge TTS / zh-CN-XiaoxiaoNeural**，保留 Provider 扩展接口，但未来 Fish Audio/Gemini 的实际调用尚未接入。ChatGPT 为 Story #37 的集成 Owner，Agent C 所在环境无法访问 Edge，仅承接渲染/媒体职责；Edge 真正联网试听要在能访问该服务的本地 Mac 上做。试听音频不能自动签发 Voice Lock，更换音频后必须重新人工批准。完整交接详见 [TTS Provider 策略](TTS_PROVIDER_POLICY.md)。
