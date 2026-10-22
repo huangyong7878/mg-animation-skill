@@ -132,3 +132,7 @@ python scripts/pipeline.py examples/two_scenes_with_voice.json --engine espeak -
 ```
 
 会依次校验场景和引用证据、合成配音、测量句段时间、导出 SRT、生成带转场/字幕/音轨的 MP4。若希望进一步核验引用的在线存在性，追加 `--fetch-sources`（需要网络）。
+
+## 当前 TTS 迁移策略（Story #37）
+
+MG Studio 试点改用 **Edge TTS** 作为默认配音候选，保持接口可插拔，为未来 Fish Audio/Gemini TTS 留扩展点；不要求 Azure Speech。此改造在单独分支开发，**不表示已完成联网试听或网页集成**。Agent C 所在环境不能访问 Edge，联网验收安排在可联网的本地 Mac，正式 Voice Lock 仍由项目负责人签发。详见 [TTS Provider 策略与职责](docs/TTS_PROVIDER_POLICY.md)。
