@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### 新增
+- 三项可选检查（均为加法式补充，不改现有架构与门禁；不启用时不阻断）：
+  - `references/creative-director.md`：可选前置"参考提炼为风格指南"——参考须分析成色值/字体比例/视线/节奏/动效脾气/质感的硬指标，美术方向必须原创。
+  - `references/technical-director.md`：可选"音乐 beat 点与音画共用时间轴"——以实际音频实测 beat 点为准，剪辑点/音效触发点与 beat 点偏差 < 0.2s，不替代 `av_sync_cues` 合同。
+  - `roles/REVIEWER.md`：可选"渲染前缩略图板预检"——用阶段 A 关键帧拼板，五问预检，只列最严重 3 个问题、只重渲受影响 Shot；不替代看 MP4 与连续帧的正式 QA。
 - `references/creative-director.md`：创意导演 Skill 1.0（语义拆解、视觉创意、Beat vs Shot、延续镜头、视觉事实检查）
 - `references/technical-director.md`：技术导演 Skill 1.0（引擎能力矩阵、TTS时间轴计算、降级流程）
 - `references/storyboard-contract.md`：分镜交接协议 v1.0
