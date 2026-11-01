@@ -1,0 +1,10 @@
+$ python3 scripts/validate.py docs/distribution/agensi-free-evidence/a1-a5/en/scene_en.json
+OK: docs/distribution/agensi-free-evidence/a1-a5/en/scene_en.json | 3 scene(s) | 960x540 | duration 24.0s
+exit=0
+
+$ python3 scripts/validate.py docs/distribution/agensi-free-evidence/a1-a5/zh/scene_zh.json
+OK: docs/distribution/agensi-free-evidence/a1-a5/zh/scene_zh.json | 3 scene(s) | 960x540 | duration 20.0s
+exit=0
+
+$ find docs/distribution/agensi-free-evidence/a1-a5 -type f \( -name "*.mp4" -o -name "*.wav" -o -name "*.srt" -o -name "*.png" \) | wc -l
+       0

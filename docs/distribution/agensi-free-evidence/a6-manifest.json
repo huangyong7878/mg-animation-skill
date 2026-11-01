@@ -1,0 +1,74 @@
+{
+  "package": "agensi-free-1.0.0.zip",
+  "version": "1.0.0",
+  "sha256": "911a841b9c239d5066d8737e74ac44591cfeb354d030fa3504f33beeb2122b84",
+  "file_count": 13,
+  "total_bytes": 67610,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4007,
+      "sha256": "dcc19a8d7d6beae240978dd165244e8b4077f4f151f81c42dbc3b63f39a404b5"
+    },
+    {
+      "path": "SKILL.md",
+      "bytes": 12351,
+      "sha256": "f054ec43cab2562ad45c1f8509fb39a160cb0c3591b6cdba178c0de3eeaece80"
+    },
+    {
+      "path": "examples/brief_en.md",
+      "bytes": 1107,
+      "sha256": "8047bbf5f8bc0b978fe3d6acc119aa4ef38f650ed7295461bbde8c6e9c1b6267"
+    },
+    {
+      "path": "examples/brief_zh.md",
+      "bytes": 1056,
+      "sha256": "14f7ee05392a2ebd45895afcd1ef9eec5c6af89a8ea431674f29a997d96c9e2d"
+    },
+    {
+      "path": "examples/qa_notes_en.md",
+      "bytes": 2782,
+      "sha256": "618341e775c5f550718daf3ffb4d132caa4304d49da6be2127b3170b748b7bd3"
+    },
+    {
+      "path": "examples/qa_notes_zh.md",
+      "bytes": 2705,
+      "sha256": "2aa612e01f0cf681d8abf59ad9c7084042bcb85f64044f6c427601960475c4ce"
+    },
+    {
+      "path": "examples/scene_en.json",
+      "bytes": 6166,
+      "sha256": "67560ec77560fdeb135d19fde8c8c56986c1865bf4e82ce48fa7880ed9c44033"
+    },
+    {
+      "path": "examples/scene_zh.json",
+      "bytes": 6045,
+      "sha256": "4cad6b25a0cf982ccfd0b5ec9bf48194f394ebe104f5e8402c8802ddef922fec"
+    },
+    {
+      "path": "examples/storyboard_en.md",
+      "bytes": 4274,
+      "sha256": "fd4bb2e30eeb88f245096c737e0b4ec765b574fc5b3d593071fd9f99f54baad0"
+    },
+    {
+      "path": "examples/storyboard_zh.md",
+      "bytes": 4228,
+      "sha256": "33ffa04b4bb756084e78b71dda2bcd744de2b461d10453b45993c15b8cf50bb4"
+    },
+    {
+      "path": "references/output-and-qa.md",
+      "bytes": 6213,
+      "sha256": "5142a5711ea4b6dcda08b16bcad0554cb368299e916aa6fb64288ed4e5a2253f"
+    },
+    {
+      "path": "references/safety-and-limitations.md",
+      "bytes": 6197,
+      "sha256": "068b1dc767009b4dc38b8156ce08aa58b5fd6c74820d4a1f1346f90d72886092"
+    },
+    {
+      "path": "references/scene-contract-lite.md",
+      "bytes": 10479,
+      "sha256": "de4cacc80cfe596bea35f519a3226b978f86d0861f19b07c4599b26afe6184e0"
+    }
+  ]
+}

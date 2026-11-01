@@ -1,0 +1,51 @@
+# A1/A4/A5 — isolated Agent runs
+
+Date: 2026-11-01
+Agents: two fresh general-purpose contexts (no prior conversation, no repository context).
+
+## Isolation layout
+
+```text
+$TMPDIR/agensi-a1/{en,zh}/
+  skill/SKILL.md
+  skill/README.md
+  skill/references/scene-contract-lite.md
+  skill/references/output-and-qa.md
+  skill/references/safety-and-limitations.md
+  brief.md
+  out/
+```
+
+The package examples directory, the repository, AGENTS.md, private project docs and any
+existing conversation/memory were NOT provided. The agents were instructed to read only
+inside their isolated directory and to use no Bash/terminal/network/install actions.
+
+The `skill-snapshot/` directory is a byte-identical copy of the final package
+skill files provided to both runs (SKILL.md, README.md and the three references).
+The final metadata-only claim-gate and empty-claims-array wording was exercised.
+
+These are simulated Agensi-style hosts, not the live Agensi platform. The platform
+load behavior and review result remain unverified until an actual upload.
+
+## Files
+
+```text
+docs/distribution/agensi-free-evidence/a1-a5/README.md
+docs/distribution/agensi-free-evidence/a1-a5/en/brief.md
+docs/distribution/agensi-free-evidence/a1-a5/en/process_log.md
+docs/distribution/agensi-free-evidence/a1-a5/en/qa_notes_en.md
+docs/distribution/agensi-free-evidence/a1-a5/en/scene_en.json
+docs/distribution/agensi-free-evidence/a1-a5/en/storyboard_en.md
+docs/distribution/agensi-free-evidence/a1-a5/setup.txt
+docs/distribution/agensi-free-evidence/a1-a5/skill-snapshot/README.md
+docs/distribution/agensi-free-evidence/a1-a5/skill-snapshot/references/output-and-qa.md
+docs/distribution/agensi-free-evidence/a1-a5/skill-snapshot/references/safety-and-limitations.md
+docs/distribution/agensi-free-evidence/a1-a5/skill-snapshot/references/scene-contract-lite.md
+docs/distribution/agensi-free-evidence/a1-a5/skill-snapshot/SKILL.md
+docs/distribution/agensi-free-evidence/a1-a5/validation.txt
+docs/distribution/agensi-free-evidence/a1-a5/zh/brief.md
+docs/distribution/agensi-free-evidence/a1-a5/zh/process_log.md
+docs/distribution/agensi-free-evidence/a1-a5/zh/qa_notes_zh.md
+docs/distribution/agensi-free-evidence/a1-a5/zh/scene_zh.json
+docs/distribution/agensi-free-evidence/a1-a5/zh/storyboard_zh.md
+```

@@ -1,0 +1,24 @@
+test_missing_tag_blocks_render_even_when_downgrade_allowed (test_auto_pipeline_contract.AutoPipelineContractTests.test_missing_tag_blocks_render_even_when_downgrade_allowed) ... PASS: scene validation
+ok
+test_valid_contract_passes_caption_timings_to_renderer (test_auto_pipeline_contract.AutoPipelineContractTests.test_valid_contract_passes_caption_timings_to_renderer) ... PASS: scene validation
+PASS: visual contract (/private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp9xbp5p35/contract_report.json)
+SAVED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp9xbp5p35/scene_silent.mp4
+SAVED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp9xbp5p35/scene.mp4
+FAIL
+
+======================================================================
+FAIL: test_valid_contract_passes_caption_timings_to_renderer (test_auto_pipeline_contract.AutoPipelineContractTests.test_valid_contract_passes_caption_timings_to_renderer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/baseline-main2/tests/test_auto_pipeline_contract.py", line 74, in test_valid_contract_passes_caption_timings_to_renderer
+    self.assertEqual(renderer_command[renderer_command.index("--timings") + 1],
+AssertionError: '/private/var/folders/k0/v22rh7md4l5f1xs95p[35 chars]json' != '/var/folders/k0/v22rh7md4l5f1xs95p0hyxf400[27 chars]json'
+- /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp9xbp5p35/timings.json
+? --------
++ /var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp9xbp5p35/timings.json
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.007s
+
+FAILED (failures=1)

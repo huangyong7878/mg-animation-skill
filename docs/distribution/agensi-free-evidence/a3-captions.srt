@@ -1,0 +1,12 @@
+1
+00:00:00,500 --> 00:00:05,617
+A bill begins as an idea. A member of Congress drafts it and introduces it in one chamber.
+
+2
+00:00:08,500 --> 00:00:12,389
+Committees hold hearings and vote. Then the full chamber debates and votes.
+
+3
+00:00:16,500 --> 00:00:20,781
+If both chambers pass the same text, the president may sign or veto it.
+

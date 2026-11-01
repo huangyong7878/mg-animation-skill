@@ -1,0 +1,65 @@
+PASS: scene validation
+.PASS: scene validation
+PASS: visual contract (/private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpa0952mgd/contract_report.json)
+SAVED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpa0952mgd/scene_silent.mp4
+SAVED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpa0952mgd/scene.mp4
+F.........../private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/baseline-main3/scripts/engine.py:472: DeprecationWarning: 'mode' parameter is deprecated and will be removed in Pillow 13 (2026-10-15)
+  return Image.fromarray(rgb,mode='RGB').convert('RGBA')
+.........................................................................ERROR: Invalid QA evidence: Evidence checksum mismatch: frames/t00000000.png
+............ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+..........ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+............................................ERROR: Output directory already has files; refusing overwrite: /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp5eqdfm3g/director
+..ERROR: Spec and delivery mismatch: delivery: spec_sha256 stale or wrong; expected 567c17cc7290292375c42dc98e7dbf6253638148c69824426fae02625f49624c
+.ERROR: Missing or empty input: /var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpf89j05tv/missing.mp4
+..ERROR: Rework package requires QA decision rework or blocked
+.ERROR: Stale or malformed QA: qa: implementation_commit does not match delivery
+.............................s...
+======================================================================
+FAIL: test_valid_contract_passes_caption_timings_to_renderer (test_auto_pipeline_contract.AutoPipelineContractTests.test_valid_contract_passes_caption_timings_to_renderer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/baseline-main3/tests/test_auto_pipeline_contract.py", line 74, in test_valid_contract_passes_caption_timings_to_renderer
+    self.assertEqual(renderer_command[renderer_command.index("--timings") + 1],
+AssertionError: '/private/var/folders/k0/v22rh7md4l5f1xs95p[35 chars]json' != '/var/folders/k0/v22rh7md4l5f1xs95p0hyxf400[27 chars]json'
+- /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpa0952mgd/timings.json
+? --------
++ /var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpa0952mgd/timings.json
+
+
+----------------------------------------------------------------------
+Ran 191 tests in 1.453s
+
+FAILED (failures=1, skipped=1)
+{
+  "shot_id": "shot_02",
+  "strict": false,
+  "covered": [],
+  "missing": [
+    "soil",
+    "drain",
+    "water_path"
+  ],
+  "errors": [
+    "Missing contract coverage in target shot: soil, drain, water_path"
+  ],
+  "warnings": [],
+  "passed": false
+}
+CREATED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpbb7ibftf/media_manifest.json | 2 media file(s)
+NOTE: No video decode, model invocation or visual QA performed.
+PASS: media byte integrity and requested metadata checks
+NOTE: No video decode, model invocation or visual QA performed.
+CREATED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp8ul59qg3/qa_package.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+Existing comment for this source run found; no duplicate
+R5 comment posted on PR #7: https://github.com/test/comment
+Imported independent Stage C AV report: pass for aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (no network/API call)
+CREATED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp5eqdfm3g/director.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+CREATED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp7dnga44c/qa.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+CREATED /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmpkkkhl7bg/rework.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+STAGE D READY FOR INDEPENDENT QA — RELEASE BLOCKED: /private/var/folders/k0/v22rh7md4l5f1xs95p0hyxf40000gn/T/tmp7mdsj3ff/out

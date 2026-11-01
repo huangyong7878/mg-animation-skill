@@ -1,0 +1,18 @@
+$ python3 -m unittest discover -s tests
+summary from a10-full-log.txt:
+Ran 227 tests in 2.295s
+FAILED (failures=1, skipped=1)
+
+Failure:
+FAIL: test_valid_contract_passes_caption_timings_to_renderer (test_auto_pipeline_contract.AutoPipelineContractTests.test_valid_contract_passes_caption_timings_to_renderer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+
+Pre-existing baseline proof (full logs: a10-baseline-main.log, a10-baseline-main-full.log):
+A detached worktree of unmodified main 10ae8a6 was created and the same test run:
+  AssertionError: '/private/var/.../timings.json' != '/var/.../timings.json'
+  Ran 2 tests ... FAILED (failures=1)
+The full clean-main suite: Ran 191 tests ... FAILED (failures=1, skipped=1).
+
+Cause: macOS /var is a symlink to /private/var; tempfile paths resolve differently in the test.
+No core renderer, workflow gate, schema or production file was modified by this PR.

@@ -1,0 +1,43 @@
+$ python3 scripts/package_agensi_free.py --scan-only
+PASS: package scan (allowlist, secrets, commands, injection, paths, links)
+exit=0
+
+$ python3 -m unittest discover -s tests -p test_agensi_free.py -v
+test_examples_are_v21_and_validate_with_real_validator (test_agensi_free.ExampleValidationTests.test_examples_are_v21_and_validate_with_real_validator) ... ok
+test_examples_fit_canvas_and_narration_windows (test_agensi_free.ExampleValidationTests.test_examples_fit_canvas_and_narration_windows) ... ok
+test_examples_have_no_claims (test_agensi_free.ExampleValidationTests.test_examples_have_no_claims) ... ok
+test_unverified_claim_is_fail_closed (test_agensi_free.ExampleValidationTests.test_unverified_claim_is_fail_closed) ... ok
+test_validator_detects_illegal_scene (test_agensi_free.ExampleValidationTests.test_validator_detects_illegal_scene) ... ok
+test_validator_detects_json_syntax_error (test_agensi_free.ExampleValidationTests.test_validator_detects_json_syntax_error) ... ok
+test_validator_detects_missing_required_fields (test_agensi_free.ExampleValidationTests.test_validator_detects_missing_required_fields) ... ok
+test_validator_detects_table_row_mismatch (test_agensi_free.ExampleValidationTests.test_validator_detects_table_row_mismatch) ... ok
+test_verified_claim_with_evidence_passes (test_agensi_free.ExampleValidationTests.test_verified_claim_with_evidence_passes) ... ok
+test_allowlist_and_root_skill (test_agensi_free.PackageBuildTests.test_allowlist_and_root_skill) ... ok
+test_builder_rejects_hidden_file (test_agensi_free.PackageBuildTests.test_builder_rejects_hidden_file) ... ok
+test_builder_rejects_secret (test_agensi_free.PackageBuildTests.test_builder_rejects_secret) ... ok
+test_builder_rejects_symlink_outside_root (test_agensi_free.PackageBuildTests.test_builder_rejects_symlink_outside_root) ... ok
+test_evidence_manifest_matches_fresh_build (test_agensi_free.PackageBuildTests.test_evidence_manifest_matches_fresh_build) ... ok
+test_limits (test_agensi_free.PackageBuildTests.test_limits) ... ok
+test_manifest_hashes (test_agensi_free.PackageBuildTests.test_manifest_hashes) ... ok
+test_readme_layout_matches_zip (test_agensi_free.PackageBuildTests.test_readme_layout_matches_zip) ... ok
+test_reference_links_exist_in_zip (test_agensi_free.PackageBuildTests.test_reference_links_exist_in_zip) ... ok
+test_reproducible_build (test_agensi_free.PackageBuildTests.test_reproducible_build) ... ok
+test_source_scan_clean (test_agensi_free.PackageBuildTests.test_source_scan_clean) ... ok
+test_text_only_and_no_executable_bits (test_agensi_free.PackageBuildTests.test_text_only_and_no_executable_bits) ... ok
+test_verify_package_roundtrip_and_tamper (test_agensi_free.PackageBuildTests.test_verify_package_roundtrip_and_tamper) ... ok
+test_verify_rejects_duplicate_members (test_agensi_free.PackageBuildTests.test_verify_rejects_duplicate_members) ... ok
+test_verify_rejects_extra_and_nested_skill (test_agensi_free.PackageBuildTests.test_verify_rejects_extra_and_nested_skill) ... ok
+test_scan_allows_relative_paths_and_https_source_link (test_agensi_free.SafetyScanTests.test_scan_allows_relative_paths_and_https_source_link) ... ok
+test_scan_detects_absolute_path_and_invisible_chars (test_agensi_free.SafetyScanTests.test_scan_detects_absolute_path_and_invisible_chars) ... ok
+test_scan_detects_secret_command_and_injection (test_agensi_free.SafetyScanTests.test_scan_detects_secret_command_and_injection) ... ok
+test_scan_rejects_lookalike_url (test_agensi_free.SafetyScanTests.test_scan_rejects_lookalike_url) ... ok
+test_frontmatter (test_agensi_free.SkillContentTests.test_frontmatter) ... ok
+test_license_audit_blocks_distribution (test_agensi_free.SkillContentTests.test_license_audit_blocks_distribution) ... ok
+test_listing_accuracy (test_agensi_free.SkillContentTests.test_listing_accuracy) ... ok
+test_on_demand_reference_loading_is_documented (test_agensi_free.SkillContentTests.test_on_demand_reference_loading_is_documented) ... ok
+test_qa_examples_disclose_unverified_status (test_agensi_free.SkillContentTests.test_qa_examples_disclose_unverified_status) ... ok
+test_readme_does_not_overclaim_example_claims (test_agensi_free.SkillContentTests.test_readme_does_not_overclaim_example_claims) ... ok
+test_skill_does_not_depend_on_private_or_repo_context (test_agensi_free.SkillContentTests.test_skill_does_not_depend_on_private_or_repo_context) ... ok
+test_text_only_and_optional_render_disclosure (test_agensi_free.SkillContentTests.test_text_only_and_optional_render_disclosure) ... ok
+Ran 36 tests in 1.243s
+OK

@@ -1,0 +1,98 @@
+# A3 — real local MP4 + audio smoke test
+
+Environment note: eSpeak is NOT installed and edge-tts is NOT installed. To avoid installing software,
+an evidence-only offline adapter named `espeak` was placed in a temporary PATH directory. It implements the
+CLI surface used by scripts/narrate.py (`-v`, `-s`, `-w`, text) and calls macOS `say` (offline, no network).
+scripts/narrate.py, scripts/render.py and scripts/pipeline.py were NOT modified.
+The exact eSpeak synthesizer path remains NOT RUN; see the A3 status note in the handoff.
+
+$ PATH=$TMPDIR/agensi-espeak-shim:$PATH python3 scripts/pipeline.py distributions/agensi-free/examples/scene_en.json --engine espeak --voice en --output-dir distributions/agensi-free/dist/render-en
+PASS: scene validation and claim evidence gate
+SAVED audio, sentence timestamps and SRT
+SAVED /Users/yonghuang/Codes/mg-animation-skill/distributions/agensi-free/dist/render-en/scene_en.mp4 | 576 frames | 61.2s
+PIPELINE COMPLETE: /Users/yonghuang/Codes/mg-animation-skill/distributions/agensi-free/dist/render-en/scene_en.mp4
+exit=0
+
+$ ffprobe -v error -show_entries stream=index,codec_type,codec_name,width,height,duration,sample_rate,channels -show_entries format=duration,size -of json distributions/agensi-free/dist/render-en/scene_en.mp4
+{
+    "programs": [
+
+    ],
+    "stream_groups": [
+
+    ],
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 960,
+            "height": 540,
+            "duration": "24.000000"
+        },
+        {
+            "index": 1,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "sample_rate": "22050",
+            "channels": 1,
+            "duration": "24.000000"
+        }
+    ],
+    "format": {
+        "duration": "24.000000",
+        "size": "790937"
+    }
+}
+
+$ cat scene_en.timings.json
+{
+  "audio": "/Users/yonghuang/Codes/mg-animation-skill/distributions/agensi-free/dist/render-en/scene_en.wav",
+  "duration": 24.0,
+  "segments": [
+    {
+      "id": "n1",
+      "text": "A bill begins as an idea. A member of Congress drafts it and introduces it in one chamber.",
+      "start": 0.5,
+      "end": 5.6166,
+      "alignment": "synthesized_segment_exact"
+    },
+    {
+      "id": "n2",
+      "text": "Committees hold hearings and vote. Then the full chamber debates and votes.",
+      "start": 8.5,
+      "end": 12.3891,
+      "alignment": "synthesized_segment_exact"
+    },
+    {
+      "id": "n3",
+      "text": "If both chambers pass the same text, the president may sign or veto it.",
+      "start": 16.5,
+      "end": 20.7811,
+      "alignment": "synthesized_segment_exact"
+    }
+  ],
+  "alignment_note": "Segment starts/ends measured from synthesized audio. Not word/phoneme forced alignment."
+}
+$ cat scene_en.timings.srt
+1
+00:00:00,500 --> 00:00:05,617
+A bill begins as an idea. A member of Congress drafts it and introduces it in one chamber.
+
+2
+00:00:08,500 --> 00:00:12,389
+Committees hold hearings and vote. Then the full chamber debates and votes.
+
+3
+00:00:16,500 --> 00:00:20,781
+If both chambers pass the same text, the president may sign or veto it.
+
+
+$ shasum -a 256 scene_en.mp4
+3ba2a50051f8f8bb1880920be6f9a85f4eeea4450646b15ab9b41d1e1ef82075  distributions/agensi-free/dist/render-en/scene_en.mp4
+
+Input scene SHA256: the rendered `examples/scene_en.json` hash matches the
+`examples/scene_en.json` entry in `a6-manifest.json` for the final package.
+
+Timing checks: max segment end 20.7811s < canvas 24.0s; gaps 5.62->8.50 and 12.39->16.50; no overlap.
+Frames extracted at 2.0s, 10.0s and 18.0s and visually inspected: title+cards+arrows+caption, table+caption, timeline+caption.
