@@ -1,0 +1,191 @@
+{
+  "version": "2.1",
+  "canvas": {
+    "width": 960,
+    "height": 540,
+    "fps": 24,
+    "duration": 24.0,
+    "grain_seed": 41,
+    "default_transition": {
+      "type": "crossfade",
+      "duration": 0.6
+    }
+  },
+  "theme": {
+    "paper": "#EAE2D6",
+    "ink": "#2F3B40",
+    "red": "#B44B43",
+    "blue": "#33505E",
+    "gold": "#B08A4A",
+    "cream": "#F7F1E7",
+    "muted": "#766C63"
+  },
+  "scenes": [
+    {
+      "id": "s1-sunlight",
+      "start": 0,
+      "duration": 8.0,
+      "elements": [
+        {
+          "id": "s1-title",
+          "type": "text",
+          "text": "光合作用：阳光如何变成糖",
+          "rect": {"x": "8%", "y": "6%", "w": "84%", "h": "13%"},
+          "style": {"size": 38, "color": "$ink"},
+          "animations": [
+            {"type": "fade", "start": 0.05, "duration": 0.5},
+            {"type": "slide", "start": 0.05, "duration": 0.55, "from_y": -16}
+          ]
+        },
+        {
+          "id": "s1-flow",
+          "type": "row",
+          "rect": {"x": "8%", "y": "30%", "w": "84%", "h": "34%"},
+          "gap": 10,
+          "weights": [1, 0.32, 1, 0.32, 1],
+          "children": [
+            {
+              "type": "card",
+              "text": "阳光",
+              "style": {"fill": "$cream", "stroke": "$gold", "stroke_width": 3, "size": 28},
+              "animations": [{"type": "pop", "start": 0.5, "duration": 0.5}]
+            },
+            {
+              "type": "arrow",
+              "style": {"stroke": "$muted", "stroke_width": 3},
+              "animations": [{"type": "draw", "start": 1.0, "duration": 0.45}]
+            },
+            {
+              "type": "card",
+              "text": "叶绿体",
+              "style": {"fill": "$cream", "stroke": "$red", "stroke_width": 3, "size": 28},
+              "animations": [{"type": "pop", "start": 1.35, "duration": 0.5}]
+            },
+            {
+              "type": "arrow",
+              "style": {"stroke": "$muted", "stroke_width": 3},
+              "animations": [{"type": "draw", "start": 1.85, "duration": 0.45}]
+            },
+            {
+              "type": "card",
+              "text": "糖",
+              "style": {"fill": "$cream", "stroke": "$blue", "stroke_width": 3, "size": 28},
+              "animations": [{"type": "pop", "start": 2.2, "duration": 0.5}]
+            }
+          ]
+        },
+        {
+          "id": "s1-note",
+          "type": "text",
+          "text": "叶片里的叶绿体捕获光能，这是第一步。",
+          "rect": {"x": "10%", "y": "72%", "w": "80%", "h": "12%"},
+          "style": {"size": 22, "color": "$muted"},
+          "animations": [{"type": "fade", "start": 3.0, "duration": 0.6}]
+        }
+      ]
+    },
+    {
+      "id": "s2-stages",
+      "start": 8.0,
+      "duration": 8.0,
+      "transition_in": {"type": "wipe_left", "duration": 0.8},
+      "elements": [
+        {
+          "id": "s2-title",
+          "type": "text",
+          "text": "两个阶段",
+          "rect": {"x": "8%", "y": "6%", "w": "84%", "h": "13%"},
+          "style": {"size": 40, "color": "$ink"},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5},
+            {"type": "slide", "start": 0.1, "duration": 0.55, "from_y": -14}
+          ]
+        },
+        {
+          "id": "s2-table",
+          "type": "table",
+          "rect": {"x": "8%", "y": "26%", "w": "84%", "h": "54%"},
+          "columns": ["阶段", "发生什么"],
+          "rows": [
+            ["光反应", "吸收光能，分解水，释放氧气。"],
+            ["碳反应", "固定二氧化碳，合成糖。"]
+          ],
+          "column_weights": [1, 2.4],
+          "header_ratio": 0.7,
+          "grid_start": 0.3,
+          "grid_duration": 0.5,
+          "cells_start": 0.9,
+          "stagger": 0.22,
+          "cell_duration": 0.35,
+          "order": "row",
+          "style": {"stroke": "$red", "stroke_width": 2, "font_size": 24}
+        }
+      ]
+    },
+    {
+      "id": "s3-energy",
+      "start": 16.0,
+      "duration": 8.0,
+      "transition_in": {"type": "slide_left", "duration": 0.8},
+      "elements": [
+        {
+          "id": "s3-title",
+          "type": "text",
+          "text": "能量被储存下来",
+          "rect": {"x": "8%", "y": "6%", "w": "84%", "h": "13%"},
+          "style": {"size": 40, "color": "$ink"},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5},
+            {"type": "slide", "start": 0.1, "duration": 0.55, "from_y": -14}
+          ]
+        },
+        {
+          "id": "s3-timeline",
+          "type": "timeline",
+          "rect": {"x": "7%", "y": "28%", "w": "86%", "h": "34%"},
+          "items": [
+            {"label": "吸收光能", "detail": "叶绿体"},
+            {"label": "固定碳", "detail": "二氧化碳"},
+            {"label": "生成糖", "detail": "化学能"}
+          ],
+          "line_start": 0.3,
+          "line_duration": 0.7,
+          "items_start": 0.8,
+          "stagger": 0.28,
+          "style": {"stroke": "$blue", "font_size": 22}
+        },
+        {
+          "id": "s3-card",
+          "type": "card",
+          "text": "光能转化为化学能，并释放氧气。",
+          "rect": {"x": "18%", "y": "70%", "w": "64%", "h": "15%"},
+          "style": {"fill": "$cream", "stroke": "$gold", "stroke_width": 3, "size": 24},
+          "animations": [{"type": "fade", "start": 3.2, "duration": 0.6}]
+        }
+      ]
+    }
+  ],
+  "narration": {
+    "segments": [
+      {
+        "id": "n1",
+        "scene_index": 0,
+        "offset": 0.5,
+        "text": "植物从阳光开始。叶片里的叶绿体捕获光能。"
+      },
+      {
+        "id": "n2",
+        "scene_index": 1,
+        "offset": 0.5,
+        "text": "光反应释放氧气，碳反应固定二氧化碳并合成糖。"
+      },
+      {
+        "id": "n3",
+        "scene_index": 2,
+        "offset": 0.5,
+        "text": "植物把光能变成化学能，储存在糖中，并释放氧气。"
+      }
+    ]
+  },
+  "claims": []
+}

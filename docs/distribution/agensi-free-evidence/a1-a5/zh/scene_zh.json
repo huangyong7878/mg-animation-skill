@@ -1,0 +1,207 @@
+{
+  "version": "2.1",
+  "canvas": {
+    "width": 960,
+    "height": 540,
+    "fps": 24,
+    "duration": 20.0,
+    "grain_seed": 41,
+    "default_transition": {"type": "crossfade", "duration": 0.6}
+  },
+  "theme": {
+    "paper": "#EAE2D6",
+    "ink": "#2F3B40",
+    "red": "#B44B43",
+    "cream": "#F7F1E7",
+    "muted": "#766C63"
+  },
+  "scenes": [
+    {
+      "id": "s1",
+      "start": 0.0,
+      "duration": 6.0,
+      "factual": false,
+      "elements": [
+        {
+          "id": "s1_title",
+          "type": "text",
+          "text": "为什么天空是蓝色的？",
+          "rect": {"x": "6%", "y": "6%", "w": "88%", "h": "13%"},
+          "style": {"size": 40, "color": "$ink", "align": "center", "max_lines": 1},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5, "easing": "out_cubic"}
+          ]
+        },
+        {
+          "id": "s1_subtitle",
+          "type": "text",
+          "text": "从阳光、大气到日落的光路",
+          "rect": {"x": "8%", "y": "20%", "w": "84%", "h": "8%"},
+          "style": {"size": 20, "color": "$muted", "align": "center", "max_lines": 1},
+          "animations": [
+            {"type": "fade", "start": 0.3, "duration": 0.5, "easing": "out_cubic"}
+          ]
+        },
+        {
+          "id": "s1_flow",
+          "type": "row",
+          "rect": {"x": "6%", "y": "36%", "w": "88%", "h": "30%"},
+          "gap": 12,
+          "weights": [1, 0.22, 1, 0.22, 1],
+          "children": [
+            {
+              "id": "s1_card_sun",
+              "type": "card",
+              "text": "太阳光",
+              "style": {"fill": "$cream", "stroke": "#C9A227", "stroke_width": 2, "radius": 12, "size": 26, "max_lines": 1},
+              "animations": [
+                {"type": "pop", "start": 0.8, "duration": 0.5, "easing": "out_back"}
+              ]
+            },
+            {
+              "id": "s1_arrow_1",
+              "type": "arrow",
+              "animations": [
+                {"type": "draw", "start": 1.0, "duration": 0.4, "easing": "out_cubic"}
+              ]
+            },
+            {
+              "id": "s1_card_air",
+              "type": "card",
+              "text": "大气分子",
+              "style": {"fill": "$cream", "stroke": "#3D6E8F", "stroke_width": 2, "radius": 12, "size": 26, "max_lines": 1},
+              "animations": [
+                {"type": "pop", "start": 1.2, "duration": 0.5, "easing": "out_back"}
+              ]
+            },
+            {
+              "id": "s1_arrow_2",
+              "type": "arrow",
+              "animations": [
+                {"type": "draw", "start": 1.4, "duration": 0.4, "easing": "out_cubic"}
+              ]
+            },
+            {
+              "id": "s1_card_scatter",
+              "type": "card",
+              "text": "蓝光四散",
+              "style": {"fill": "$cream", "stroke": "#3D6E8F", "stroke_width": 2, "radius": 12, "size": 26, "max_lines": 1},
+              "animations": [
+                {"type": "pop", "start": 1.6, "duration": 0.5, "easing": "out_back"}
+              ]
+            }
+          ]
+        },
+        {
+          "id": "s1_note",
+          "type": "text",
+          "text": "不同颜色的光，被散射的程度不同",
+          "rect": {"x": "10%", "y": "74%", "w": "80%", "h": "10%"},
+          "style": {"size": 18, "color": "$muted", "align": "center", "max_lines": 1},
+          "animations": [
+            {"type": "fade", "start": 2.2, "duration": 0.5, "easing": "out_cubic"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "start": 6.0,
+      "duration": 6.0,
+      "transition_in": {"type": "wipe_left", "duration": 0.6},
+      "factual": false,
+      "elements": [
+        {
+          "id": "s2_heading",
+          "type": "text",
+          "text": "蓝光与红光：谁更容易被散射？",
+          "rect": {"x": "6%", "y": "7%", "w": "88%", "h": "11%"},
+          "style": {"size": 30, "color": "$ink", "align": "center", "max_lines": 1},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5, "easing": "out_cubic"}
+          ]
+        },
+        {
+          "id": "s2_table",
+          "type": "table",
+          "rect": {"x": "8%", "y": "23%", "w": "84%", "h": "46%"},
+          "columns": ["光色", "波长", "被大气散射"],
+          "rows": [
+            ["蓝光", "较短", "较强"],
+            ["红光", "较长", "较弱"]
+          ],
+          "column_weights": [1, 1, 1.6],
+          "header_ratio": 0.7,
+          "grid_start": 0.3,
+          "grid_duration": 0.5,
+          "cells_start": 0.9,
+          "stagger": 0.2,
+          "cell_duration": 0.35,
+          "order": "row",
+          "style": {"stroke": "$red", "stroke_width": 2, "font_size": 22}
+        },
+        {
+          "id": "s2_takeaway",
+          "type": "card",
+          "text": "短波蓝光更容易被散射，白天天空偏蓝",
+          "rect": {"x": "8%", "y": "74%", "w": "84%", "h": "15%"},
+          "style": {"fill": "$cream", "stroke": "#C9A227", "stroke_width": 2, "radius": 12, "size": 22, "max_lines": 1},
+          "animations": [
+            {"type": "slide", "start": 2.2, "duration": 0.5, "easing": "out_cubic", "from_y": 16}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "start": 12.0,
+      "duration": 8.0,
+      "transition_in": {"type": "slide_left", "duration": 0.6},
+      "factual": false,
+      "elements": [
+        {
+          "id": "s3_heading",
+          "type": "text",
+          "text": "日落时，光路变长了",
+          "rect": {"x": "6%", "y": "7%", "w": "88%", "h": "11%"},
+          "style": {"size": 30, "color": "$ink", "align": "center", "max_lines": 1},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5, "easing": "out_cubic"}
+          ]
+        },
+        {
+          "id": "s3_timeline",
+          "type": "timeline",
+          "rect": {"x": "7%", "y": "24%", "w": "86%", "h": "40%"},
+          "items": [
+            {"label": "白天", "detail": "阳光穿过较薄的大气"},
+            {"label": "日落", "detail": "光线斜穿更厚的大气"},
+            {"label": "结果", "detail": "蓝光多被散射，红橙光留下"}
+          ],
+          "line_start": 0.3,
+          "line_duration": 0.7,
+          "items_start": 0.8,
+          "stagger": 0.5
+        },
+        {
+          "id": "s3_summary",
+          "type": "card",
+          "text": "所以日落天空偏红",
+          "rect": {"x": "10%", "y": "72%", "w": "80%", "h": "16%"},
+          "style": {"fill": "$cream", "stroke": "$red", "stroke_width": 2, "radius": 12, "size": 28, "max_lines": 1},
+          "animations": [
+            {"type": "pop", "start": 2.6, "duration": 0.5, "easing": "out_back"}
+          ]
+        }
+      ]
+    }
+  ],
+  "narration": {
+    "segments": [
+      {"id": "n1", "scene_index": 0, "offset": 0.4, "text": "阳光其实包含各种颜色。"},
+      {"id": "n2", "scene_index": 1, "offset": 0.4, "text": "大气分子把短波蓝光散射得更强。"},
+      {"id": "n3", "scene_index": 2, "offset": 0.5, "text": "日落时光线穿过更厚大气，蓝光被散射，红橙光留下。"}
+    ]
+  },
+  "claims": []
+}

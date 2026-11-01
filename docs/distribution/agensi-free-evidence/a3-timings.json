@@ -1,0 +1,28 @@
+{
+  "audio": "/Users/yonghuang/Codes/mg-animation-skill/distributions/agensi-free/dist/render-en/scene_en.wav",
+  "duration": 24.0,
+  "segments": [
+    {
+      "id": "n1",
+      "text": "A bill begins as an idea. A member of Congress drafts it and introduces it in one chamber.",
+      "start": 0.5,
+      "end": 5.6166,
+      "alignment": "synthesized_segment_exact"
+    },
+    {
+      "id": "n2",
+      "text": "Committees hold hearings and vote. Then the full chamber debates and votes.",
+      "start": 8.5,
+      "end": 12.3891,
+      "alignment": "synthesized_segment_exact"
+    },
+    {
+      "id": "n3",
+      "text": "If both chambers pass the same text, the president may sign or veto it.",
+      "start": 16.5,
+      "end": 20.7811,
+      "alignment": "synthesized_segment_exact"
+    }
+  ],
+  "alignment_note": "Segment starts/ends measured from synthesized audio. Not word/phoneme forced alignment."
+}

@@ -1,0 +1,45 @@
+# A6 — package build, manifest and reproducibility
+
+$ python3 scripts/package_agensi_free.py
+BUILT /Users/yonghuang/Codes/mg-animation-skill/distributions/agensi-free/dist/agensi-free-1.0.0.zip
+MANIFEST /Users/yonghuang/Codes/mg-animation-skill/distributions/agensi-free/dist/agensi-free-1.0.0.manifest.json
+SHA256 911a841b9c239d5066d8737e74ac44591cfeb354d030fa3504f33beeb2122b84
+FILES 13 | BYTES 67610
+PASS: deterministic ZIP structure, manifest and safety scan
+
+$ python3 scripts/package_agensi_free.py --out-dir /tmp/claude-501/pkg-final2
+BUILT /private/tmp/claude-501/pkg-final2/agensi-free-1.0.0.zip
+MANIFEST /private/tmp/claude-501/pkg-final2/agensi-free-1.0.0.manifest.json
+SHA256 911a841b9c239d5066d8737e74ac44591cfeb354d030fa3504f33beeb2122b84
+FILES 13 | BYTES 67610
+PASS: deterministic ZIP structure, manifest and safety scan
+
+$ shasum -a 256 dist/agensi-free-1.0.0.zip /tmp/claude-501/pkg-final2/agensi-free-1.0.0.zip
+911a841b9c239d5066d8737e74ac44591cfeb354d030fa3504f33beeb2122b84  distributions/agensi-free/dist/agensi-free-1.0.0.zip
+911a841b9c239d5066d8737e74ac44591cfeb354d030fa3504f33beeb2122b84  /tmp/claude-501/pkg-final2/agensi-free-1.0.0.zip
+
+$ diff dist/agensi-free-1.0.0.manifest.json /tmp/claude-501/pkg-final2/agensi-free-1.0.0.manifest.json
+IDENTICAL
+
+$ python3 scripts/package_agensi_free.py --verify dist/agensi-free-1.0.0.zip
+PASS: distributions/agensi-free/dist/agensi-free-1.0.0.zip | sha256 911a841b9c239d5066d8737e74ac44591cfeb354d030fa3504f33beeb2122b84 | 13 files
+
+$ unzip -l dist/agensi-free-1.0.0.zip
+Archive:  distributions/agensi-free/dist/agensi-free-1.0.0.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+     4007  01-01-1980 00:00   README.md
+    12351  01-01-1980 00:00   SKILL.md
+     1107  01-01-1980 00:00   examples/brief_en.md
+     1056  01-01-1980 00:00   examples/brief_zh.md
+     2782  01-01-1980 00:00   examples/qa_notes_en.md
+     2705  01-01-1980 00:00   examples/qa_notes_zh.md
+     6166  01-01-1980 00:00   examples/scene_en.json
+     6045  01-01-1980 00:00   examples/scene_zh.json
+     4274  01-01-1980 00:00   examples/storyboard_en.md
+     4228  01-01-1980 00:00   examples/storyboard_zh.md
+     6213  01-01-1980 00:00   references/output-and-qa.md
+     6197  01-01-1980 00:00   references/safety-and-limitations.md
+    10479  01-01-1980 00:00   references/scene-contract-lite.md
+---------                     -------
+    67610                     13 files

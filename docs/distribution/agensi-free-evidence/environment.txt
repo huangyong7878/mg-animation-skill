@@ -1,0 +1,16 @@
+# Environment
+
+Date: 2026-11-01T14:49:21Z
+Host: Darwin 24.6.0 arm64
+Python: Python 3.11.5
+jsonschema: 4.25.1
+Pillow: 11.3.0
+numpy: 1.26.4
+ffmpeg: ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers
+ffprobe: ffprobe version 9.0.1 Copyright (c) 2007-2026 the FFmpeg developers
+eSpeak: NOT INSTALLED
+edge-tts: ModuleNotFoundError: No module named 'edge_tts'
+say: /usr/bin/say
+say voices used: Tingting (zh_CN), Samantha (en_US)
+git base: 10ae8a6
+branch: docs/agensi-free-agent-b-20261031

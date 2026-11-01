@@ -1,0 +1,65 @@
+....................................PASS: scene validation
+.PASS: scene validation
+PASS: visual contract (/private/tmp/claude-501/tmp8fv4p1dr/contract_report.json)
+SAVED /private/tmp/claude-501/tmp8fv4p1dr/scene_silent.mp4
+SAVED /private/tmp/claude-501/tmp8fv4p1dr/scene.mp4
+F.........../Users/yonghuang/Codes/mg-animation-skill/scripts/engine.py:472: DeprecationWarning: 'mode' parameter is deprecated and will be removed in Pillow 13 (2026-10-15)
+  return Image.fromarray(rgb,mode='RGB').convert('RGBA')
+.........................................................................ERROR: Invalid QA evidence: Evidence checksum mismatch: frames/t00000000.png
+............ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+..........ERROR: R5_ENABLED must be exactly 'true' to invoke paid visual QA
+............................................ERROR: Output directory already has files; refusing overwrite: /private/tmp/claude-501/tmpz1gp7n90/director
+..ERROR: Spec and delivery mismatch: delivery: spec_sha256 stale or wrong; expected 567c17cc7290292375c42dc98e7dbf6253638148c69824426fae02625f49624c
+.ERROR: Missing or empty input: /tmp/claude-501/tmpykb6srmh/missing.mp4
+..ERROR: Rework package requires QA decision rework or blocked
+.ERROR: Stale or malformed QA: qa: implementation_commit does not match delivery
+.............................s...
+======================================================================
+FAIL: test_valid_contract_passes_caption_timings_to_renderer (test_auto_pipeline_contract.AutoPipelineContractTests.test_valid_contract_passes_caption_timings_to_renderer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/yonghuang/Codes/mg-animation-skill/tests/test_auto_pipeline_contract.py", line 74, in test_valid_contract_passes_caption_timings_to_renderer
+    self.assertEqual(renderer_command[renderer_command.index("--timings") + 1],
+AssertionError: '/private/tmp/claude-501/tmp8fv4p1dr/timings.json' != '/tmp/claude-501/tmp8fv4p1dr/timings.json'
+- /private/tmp/claude-501/tmp8fv4p1dr/timings.json
+? --------
++ /tmp/claude-501/tmp8fv4p1dr/timings.json
+
+
+----------------------------------------------------------------------
+Ran 227 tests in 2.295s
+
+FAILED (failures=1, skipped=1)
+{
+  "shot_id": "shot_02",
+  "strict": false,
+  "covered": [],
+  "missing": [
+    "soil",
+    "drain",
+    "water_path"
+  ],
+  "errors": [
+    "Missing contract coverage in target shot: soil, drain, water_path"
+  ],
+  "warnings": [],
+  "passed": false
+}
+CREATED /private/tmp/claude-501/tmp9dlq9isp/media_manifest.json | 2 media file(s)
+NOTE: No video decode, model invocation or visual QA performed.
+PASS: media byte integrity and requested metadata checks
+NOTE: No video decode, model invocation or visual QA performed.
+CREATED /private/tmp/claude-501/tmp_h7741ie/qa_package.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+Existing comment for this source run found; no duplicate
+R5 comment posted on PR #7: https://github.com/test/comment
+Imported independent Stage C AV report: pass for aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (no network/API call)
+CREATED /private/tmp/claude-501/tmpz1gp7n90/director.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+CREATED /private/tmp/claude-501/tmpatjq0_yh/qa.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+CREATED /private/tmp/claude-501/tmpa_4wot51/rework.zip
+NOTE: File transfer only; another model needs actual access to these materials.
+STAGE D READY FOR INDEPENDENT QA — RELEASE BLOCKED: /private/tmp/claude-501/tmph3wy_rrz/out
