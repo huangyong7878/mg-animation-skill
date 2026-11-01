@@ -1,0 +1,192 @@
+{
+  "version": "2.1",
+  "canvas": {
+    "width": 960,
+    "height": 540,
+    "fps": 24,
+    "duration": 24.0,
+    "grain_seed": 41,
+    "default_transition": {
+      "type": "crossfade",
+      "duration": 0.6
+    }
+  },
+  "theme": {
+    "paper": "#EAE2D6",
+    "ink": "#2F3B40",
+    "red": "#B44B43",
+    "blue": "#33505E",
+    "gold": "#B08A4A",
+    "cream": "#F7F1E7",
+    "muted": "#766C63"
+  },
+  "scenes": [
+    {
+      "id": "s1-idea",
+      "start": 0,
+      "duration": 8.0,
+      "elements": [
+        {
+          "id": "s1-title",
+          "type": "text",
+          "text": "How a Bill Becomes Law",
+          "rect": {"x": "8%", "y": "6%", "w": "84%", "h": "13%"},
+          "style": {"size": 42, "color": "$ink"},
+          "animations": [
+            {"type": "fade", "start": 0.05, "duration": 0.5},
+            {"type": "slide", "start": 0.05, "duration": 0.55, "from_y": -16}
+          ]
+        },
+        {
+          "id": "s1-flow",
+          "type": "row",
+          "rect": {"x": "6%", "y": "30%", "w": "88%", "h": "34%"},
+          "gap": 10,
+          "weights": [1, 0.32, 1, 0.32, 1],
+          "children": [
+            {
+              "type": "card",
+              "text": "1. Idea",
+              "style": {"fill": "$cream", "stroke": "$red", "stroke_width": 3, "size": 26},
+              "animations": [{"type": "pop", "start": 0.5, "duration": 0.5}]
+            },
+            {
+              "type": "arrow",
+              "style": {"stroke": "$muted", "stroke_width": 3},
+              "animations": [{"type": "draw", "start": 1.0, "duration": 0.45}]
+            },
+            {
+              "type": "card",
+              "text": "2. Draft",
+              "style": {"fill": "$cream", "stroke": "$gold", "stroke_width": 3, "size": 26},
+              "animations": [{"type": "pop", "start": 1.35, "duration": 0.5}]
+            },
+            {
+              "type": "arrow",
+              "style": {"stroke": "$muted", "stroke_width": 3},
+              "animations": [{"type": "draw", "start": 1.85, "duration": 0.45}]
+            },
+            {
+              "type": "card",
+              "text": "3. Introduce",
+              "style": {"fill": "$cream", "stroke": "$blue", "stroke_width": 3, "size": 26},
+              "animations": [{"type": "pop", "start": 2.2, "duration": 0.5}]
+            }
+          ]
+        },
+        {
+          "id": "s1-note",
+          "type": "text",
+          "text": "A member sponsors the bill and introduces it in one chamber.",
+          "rect": {"x": "10%", "y": "72%", "w": "80%", "h": "12%"},
+          "style": {"size": 22, "color": "$muted"},
+          "animations": [{"type": "fade", "start": 3.0, "duration": 0.6}]
+        }
+      ]
+    },
+    {
+      "id": "s2-committee",
+      "start": 8.0,
+      "duration": 8.0,
+      "transition_in": {"type": "wipe_left", "duration": 0.8},
+      "elements": [
+        {
+          "id": "s2-title",
+          "type": "text",
+          "text": "Committee and Floor Action",
+          "rect": {"x": "8%", "y": "6%", "w": "84%", "h": "13%"},
+          "style": {"size": 40, "color": "$ink"},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5},
+            {"type": "slide", "start": 0.1, "duration": 0.55, "from_y": -14}
+          ]
+        },
+        {
+          "id": "s2-table",
+          "type": "table",
+          "rect": {"x": "8%", "y": "24%", "w": "84%", "h": "58%"},
+          "columns": ["Stage", "What happens"],
+          "rows": [
+            ["Committee", "Hearings, amendments and a markup vote."],
+            ["Floor", "Debate and a majority vote."],
+            ["Other chamber", "The same steps repeat."]
+          ],
+          "column_weights": [1, 2.6],
+          "header_ratio": 0.7,
+          "grid_start": 0.3,
+          "grid_duration": 0.5,
+          "cells_start": 0.9,
+          "stagger": 0.22,
+          "cell_duration": 0.35,
+          "order": "row",
+          "style": {"stroke": "$red", "stroke_width": 2, "font_size": 22}
+        }
+      ]
+    },
+    {
+      "id": "s3-president",
+      "start": 16.0,
+      "duration": 8.0,
+      "transition_in": {"type": "slide_left", "duration": 0.8},
+      "elements": [
+        {
+          "id": "s3-title",
+          "type": "text",
+          "text": "Final Steps",
+          "rect": {"x": "8%", "y": "6%", "w": "84%", "h": "13%"},
+          "style": {"size": 40, "color": "$ink"},
+          "animations": [
+            {"type": "fade", "start": 0.1, "duration": 0.5},
+            {"type": "slide", "start": 0.1, "duration": 0.55, "from_y": -14}
+          ]
+        },
+        {
+          "id": "s3-timeline",
+          "type": "timeline",
+          "rect": {"x": "7%", "y": "28%", "w": "86%", "h": "34%"},
+          "items": [
+            {"label": "Pass both", "detail": "Identical text"},
+            {"label": "Present", "detail": "Sent to president"},
+            {"label": "Sign or veto", "detail": "Two-thirds can override"}
+          ],
+          "line_start": 0.3,
+          "line_duration": 0.7,
+          "items_start": 0.8,
+          "stagger": 0.28,
+          "style": {"stroke": "$blue", "font_size": 22}
+        },
+        {
+          "id": "s3-card",
+          "type": "card",
+          "text": "A veto override requires two-thirds in both chambers.",
+          "rect": {"x": "18%", "y": "70%", "w": "64%", "h": "15%"},
+          "style": {"fill": "$cream", "stroke": "$gold", "stroke_width": 3, "size": 22},
+          "animations": [{"type": "fade", "start": 3.2, "duration": 0.6}]
+        }
+      ]
+    }
+  ],
+  "narration": {
+    "segments": [
+      {
+        "id": "n1",
+        "scene_index": 0,
+        "offset": 0.5,
+        "text": "A bill begins as an idea. A member of Congress drafts it and introduces it in one chamber."
+      },
+      {
+        "id": "n2",
+        "scene_index": 1,
+        "offset": 0.5,
+        "text": "Committees hold hearings and vote. Then the full chamber debates and votes."
+      },
+      {
+        "id": "n3",
+        "scene_index": 2,
+        "offset": 0.5,
+        "text": "If both chambers pass the same text, the president may sign or veto it."
+      }
+    ]
+  },
+  "claims": []
+}

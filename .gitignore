@@ -15,3 +15,6 @@ work/
 **/keyframes/
 **/frame_sequences/
 **/contact_sheets/
+
+# Local Agensi Free build output: ZIPs, manifests and render smoke artifacts.
+distributions/agensi-free/dist/
